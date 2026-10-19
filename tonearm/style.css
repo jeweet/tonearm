@@ -1,0 +1,387 @@
+/* Artwork */
+.cover {
+  border-radius: 8px;
+  background-color: alpha(currentColor, 0.08);
+}
+.cover.round { border-radius: 9999px; }
+.cover.big-cover {
+  border-radius: 14px;
+  box-shadow: 0 4px 18px alpha(black, 0.28), 0 1px 3px alpha(black, 0.18);
+  margin: 6px;
+}
+
+/* Album grid */
+gridview.album-grid { padding: 2px; background: transparent; }
+gridview.album-grid > child {
+  padding: 12px;   /* room around the cover for its hover zoom and shadow; a 360 px
+                      phone still fits 2 medium (2 × (148 + 24) + 4) or 3 small tiles */
+  border-radius: 14px;
+}
+gridview.album-grid > child:hover { background: none; }
+/* artists: more air between the round pictures; a 360 px phone still fits two
+   (2 × (140 + 2 × 16) + 4 = 348) */
+gridview.album-grid.artist-grid > child { padding: 20px 16px; }
+.album-tile .tile-title { font-weight: 600; margin-top: 2px; }
+flowbox.album-flow > flowboxchild { padding: 8px; border-radius: 14px; }  /* 2 a row on a phone */
+
+/* Lists */
+.artist-link { font-weight: 600; font-size: 1.1em; }
+
+/* Album page track rows */
+row.now-playing { color: @accent_color; }
+row.now-playing .title { font-weight: 700; }
+
+/* Now-playing bar */
+/* glass: translucent over the page, which player.GlassBin draws blurred beneath */
+.now-playing-bar { background-color: alpha(@headerbar_bg_color, 0.78); }
+.glass { background-color: @headerbar_bg_color; }
+
+/* Player controls and the player's seek line: in override.css (above user themes) */
+
+/* Small pills: "In Kodi", "3/18", "unmonitored" */
+.badge {
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background-color: alpha(currentColor, 0.08);
+  font-weight: 600;
+}
+.badge.success { color: @success_color; background-color: alpha(currentColor, 0.12); }
+button.pill.small { padding: 4px 14px; min-height: 0; font-size: 0.9em; }
+/* Lidarr beside Play / Shuffle on artist pages: as tall, a little narrower */
+
+/* Album / artist page backdrop: fanart that fades into the page */
+.backdrop-fade {
+  background-image: linear-gradient(to bottom,
+      alpha(@window_bg_color, 0.20) 0%,
+      alpha(@window_bg_color, 0.55) 45%,
+      alpha(@window_bg_color, 0.88) 75%,
+      @window_bg_color 100%);
+}
+/* very wide windows (taller band): the fade starts and ends higher */
+.backdrop.wide .backdrop-fade {
+  background-image: linear-gradient(to bottom,
+      alpha(@window_bg_color, 0.20) 0%,
+      alpha(@window_bg_color, 0.60) 32%,
+      alpha(@window_bg_color, 0.92) 58%,
+      @window_bg_color 82%);
+}
+/* .soft backdrops are a 40px image stretched wide: naturally blurred, no filter needed */
+
+.artist-tile .tile-title { font-weight: 600; margin-top: 4px; }
+
+/* Search results overlay */
+.search-scrim { background-color: alpha(black, 0.25); }
+.search-panel {
+  background-color: @popover_bg_color;
+  color: @popover_fg_color;
+  border-radius: 14px;
+  margin-top: 6px;
+  box-shadow: 0 8px 28px alpha(black, 0.30), 0 0 0 1px alpha(black, 0.08);
+}
+.search-panel.phone { border-radius: 0; margin-top: 0; box-shadow: none; }
+.search-panel listview { background: transparent; }
+
+/* A–Z jump rail and back-to-top */
+.letter-rail {
+  padding: 4px 2px;
+  border-radius: 9999px;
+  background-color: alpha(@window_bg_color, 0.6);
+}
+.letter-rail .letter {
+  font-size: 0.72em;
+  font-weight: 700;
+  min-width: 18px;
+  min-height: 9px;
+  color: @accent_color;
+}
+.letter-rail .letter.empty { color: alpha(currentColor, 0.25); }
+.letter-bubble {
+  font-size: 2.6em;
+  font-weight: 800;
+  min-width: 76px;
+  min-height: 76px;
+  border-radius: 18px;
+  color: white;
+  background-color: alpha(black, 0.55);
+}
+button.to-top { min-width: 54px; min-height: 54px; padding: 0; border-radius: 9999px; -gtk-icon-size: 22px; }
+
+/* Sidebar footer: instance + connection state */
+/* the sidebar's Kodi status: geometry of Adwaita's .navigation-sidebar rows — 6 px
+   margin (window.py), 8 px row padding + 6 px content margin = 14 px, 9 px radius */
+button.instance-status, menubutton.instance-status > button { padding: 8px 14px; border-radius: 9px; }
+.status-dot.online { color: @success_color; }
+.status-dot.offline { color: @error_color; }
+.status-dot.busy { color: @warning_color; }
+
+/* Phone bottom navigation */
+.tonearm-tabbar {
+  padding: 4px 6px;
+  background-color: @headerbar_bg_color;
+  border-top: 1px solid alpha(currentColor, 0.08);
+}
+.bottom-switcher > button { padding: 4px 0; border-radius: 10px; }
+.bottom-switcher > button:checked { color: @accent_color; background-color: alpha(@accent_bg_color, 0.12); }
+
+
+/* Album views: covers-only wall */
+gridview.album-grid.covers-only > child { padding: 8px; }
+
+/* Mini player on wider windows: thicker, rounded progress between the times */
+
+/* Spotlight page: magazine layout */
+.overline {
+  font-size: 0.75em;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: @accent_color;
+}
+.tag {
+  padding: 2px 10px;
+  border-radius: 9999px;
+  background-color: alpha(currentColor, 0.10);
+  font-size: 0.85em;
+}
+.hero-cover { border-radius: 12px; box-shadow: 0 6px 24px alpha(black, 0.35); }
+.story-artist { padding-left: 6px; padding-right: 6px; font-weight: 600; font-size: 1.15em; }
+.story-card { padding: 0; }   /* the content row has the margins; the glow fills the card */
+.card-art { opacity: 0.18; }
+.card-art.soft { opacity: 0.30; }   /* a blurred cover stand-in for missing fanart */
+/* caption on fanart: dark, square-ish corners like the album covers (not .osd's) */
+.spot-caption {
+  background-color: alpha(black, 0.68);
+  color: white;
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+.spot-caption .overline { color: inherit; opacity: 0.85; }
+.spotlight-tile { min-height: 0; }
+
+/* Hover / press feedback like Crate (and Adwaita's activatable cards): the cover
+   zooms in a touch, lights up and lifts; a small dip when pressed. Tiles keep no
+   background highlight. GTK skips the transitions when "Reduce animation" is on. */
+flowbox.album-flow > flowboxchild:hover,
+flowbox.album-flow > flowboxchild:active { background: none; }
+.cover, avatar, .spotlight-tile > picture {
+  transition: transform 160ms ease-out, filter 160ms ease-out, box-shadow 160ms ease-out;
+}
+gridview.album-grid > child:hover .cover,
+flowbox.album-flow > flowboxchild:hover .cover,
+.story-card:hover .cover,
+.jump-card:hover .cover,
+.cover.clickable:hover,
+gridview.album-grid > child:hover avatar {
+  transform: scale(1.03);
+  filter: brightness(1.07);
+  box-shadow: 0 6px 18px alpha(black, 0.30);
+}
+.spotlight-tile:hover > picture { transform: scale(1.03); filter: brightness(1.07); }
+gridview.album-grid > child:active .cover,
+flowbox.album-flow > flowboxchild:active .cover,
+.story-card:active .cover,
+.jump-card:active .cover,
+.cover.clickable:active,
+.spotlight-tile:active > picture {
+  transform: scale(0.98);
+  transition-duration: 80ms;
+}
+
+/* ★ Kodi Favourite toggle on artist pages */
+button.fav-toggle:checked { color: #e5a50a; background-color: alpha(#f6d32d, 0.18); }
+
+/* Spotlight: "Coming Soon" from Lidarr — dashed, not in the library yet */
+.upcoming-card {
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px dashed alpha(currentColor, 0.28);
+  background-color: alpha(currentColor, 0.03);
+}
+.upcoming-card:hover { background-color: alpha(currentColor, 0.06); }
+.date-badge {
+  background-color: @window_bg_color;
+  color: @window_fg_color;
+  border-radius: 6px;
+  padding: 1px 6px 3px 6px;
+  box-shadow: 0 1px 4px alpha(black, 0.35);
+}
+.date-badge-month { font-size: 0.62em; font-weight: 800; color: @accent_color; }
+.date-badge-day { font-size: 1.05em; font-weight: 800; }
+.upcoming-card:hover .cover { transform: scale(1.03); filter: brightness(1.07); }
+
+/* ★ on album covers (grids) and track rows: a plain star, no button chrome —
+   white with a dark halo on covers (readable on any artwork), yellow when a Favorite */
+button.cover-star,
+button.cover-star:hover,
+button.cover-star:active {
+  background: none;
+  box-shadow: none;
+  min-width: 0; min-height: 0;
+  padding: 2px;
+  -gtk-icon-size: 22px;
+  color: white;
+  -gtk-icon-shadow: 0 0 3px alpha(black, 0.9), 0 1px 2px alpha(black, 0.8);
+  opacity: 0.9;
+}
+button.cover-star:hover { opacity: 1; }
+button.cover-star.on { color: #f6d32d; opacity: 1; }
+button.track-star,
+button.track-star:hover,
+button.track-star:active {
+  background: none; box-shadow: none; min-width: 24px; min-height: 24px; padding: 0;
+  -gtk-icon-size: 16px; opacity: 0.45;
+}
+button.track-star:hover { opacity: 0.85; }
+button.track-star.on { color: #e5a50a; opacity: 1; }
+/* a Favorite track: its ⋯ menu button shows a gold ★ instead */
+menubutton.track-more.fav > button { color: #e5a50a; }
+
+/* Spotlight: Jump Back In */
+.jump-card { padding: 10px 14px 10px 10px; }
+.jump-card:hover { background-color: mix(@card_bg_color, @card_fg_color, 0.04); }
+.jump-progress trough, .jump-progress progress { min-height: 4px; border-radius: 9999px; }
+.jump-play {
+  min-width: 38px; min-height: 38px;
+  border-radius: 9999px;
+  background-color: @accent_bg_color;
+  color: @accent_fg_color;
+  -gtk-icon-size: 16px;
+  transition: transform 160ms ease-out, filter 160ms ease-out;
+}
+.jump-card:hover .jump-play { transform: scale(1.08); filter: brightness(1.08); }
+.jump-card:active .jump-play { transform: scale(0.95); }
+
+/* Spotlight: radio tiles — big, coloured, GNOME palette */
+.radio-tile {
+  min-height: 96px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  color: white;
+  transition: transform 160ms ease-out, filter 160ms ease-out;
+}
+.radio-tile:hover { transform: scale(1.02); filter: brightness(1.06); }
+.radio-tile:active { transform: scale(0.98); }
+/* Tile colours (radio, decade and genre tiles, genre headers): 14, so a page never
+   needs one twice — colors.TILE_COLORS must match */
+.radio-tile.c0, .decade-tile.c0, .genre-hero.c0 { background-image: linear-gradient(135deg, #3584e4, #1a5fb4); }
+.radio-tile.c1, .decade-tile.c1, .genre-hero.c1 { background-image: linear-gradient(135deg, #9141ac, #613583); }
+.radio-tile.c2, .decade-tile.c2, .genre-hero.c2 { background-image: linear-gradient(135deg, #e66100, #c64600); }
+.radio-tile.c3, .decade-tile.c3, .genre-hero.c3 { background-image: linear-gradient(135deg, #2ec27e, #26a269); }
+.radio-tile.c4, .decade-tile.c4, .genre-hero.c4 { background-image: linear-gradient(135deg, #e01b24, #a51d2d); }
+.radio-tile.c5, .decade-tile.c5, .genre-hero.c5 { background-image: linear-gradient(135deg, #2190a4, #1c71d8); }
+.radio-tile.c6, .decade-tile.c6, .genre-hero.c6 { background-image: linear-gradient(135deg, #d6409f, #a3207a); }
+.radio-tile.c7, .decade-tile.c7, .genre-hero.c7 { background-image: linear-gradient(135deg, #986a44, #63452c); }
+.radio-tile.c8, .decade-tile.c8, .genre-hero.c8 { background-image: linear-gradient(135deg, #5b63d3, #323a9e); }
+.radio-tile.c9, .decade-tile.c9, .genre-hero.c9 { background-image: linear-gradient(135deg, #c88800, #985c00); }
+.radio-tile.c10, .decade-tile.c10, .genre-hero.c10 { background-image: linear-gradient(135deg, #3a944a, #1f6b2e); }
+.radio-tile.c11, .decade-tile.c11, .genre-hero.c11 { background-image: linear-gradient(135deg, #5e6c84, #3d4659); }
+.radio-tile.c12, .decade-tile.c12, .genre-hero.c12 { background-image: linear-gradient(135deg, #00a3b8, #00707d); }
+.radio-tile.c13, .decade-tile.c13, .genre-hero.c13 { background-image: linear-gradient(135deg, #b5375e, #7a1f3d); }
+.radio-tile-title { font-size: 1.25em; font-weight: 800; }
+.radio-tile-sub { font-size: 0.8em; font-weight: 700; opacity: 0.8; }
+
+/* Decades: wide coloured tiles in the radio tiles' colours */
+flowbox.decade-flow > flowboxchild { padding: 0; border-radius: 14px; }
+.decade-tile {
+  min-height: 124px;
+  min-width: 260px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  color: white;
+  transition: filter 150ms ease;
+}
+/* the zoom on the whole tile (body + its radio button), the glow on the body */
+.color-tile { transition: transform 150ms ease; }
+flowbox.decade-flow > flowboxchild:hover > .color-tile { transform: scale(1.02); }
+flowbox.decade-flow > flowboxchild:active > .color-tile { transform: scale(0.98); }
+flowbox.decade-flow > flowboxchild:hover .decade-tile { filter: brightness(1.06); }
+.decade-tile-title { font-size: 1.9em; font-weight: 800; }
+.decade-tile-sub { font-size: 0.85em; font-weight: 700; opacity: 0.85; }
+.decade-cover { border-radius: 8px; box-shadow: 0 2px 8px alpha(black, 0.35); }
+.decade-cover.fan0 { transform: rotate(4deg); }
+.decade-cover.fan1 { transform: rotate(-3deg); }
+.decade-cover.fan2 { transform: rotate(-9deg); }
+button.decade-radio {
+  color: white;
+  background-color: alpha(black, 0.18);
+  min-width: 30px; min-height: 30px;
+}
+button.decade-radio:hover { background-color: alpha(black, 0.3); }
+
+/* Genres: all genres as pills, A–Z under letters */
+.genre-letter { font-weight: 800; font-size: 1.1em; opacity: 0.55; }
+flowbox.genre-pills > flowboxchild { padding: 0; background: none; }
+button.genre-pill {
+  border-radius: 999px;
+  padding: 4px 12px;
+  min-height: 0;
+  background-color: alpha(currentColor, 0.08);
+  font-weight: 600;
+}
+button.genre-pill:hover { background-color: alpha(currentColor, 0.14); }
+.genre-pill-count { font-size: 0.85em; opacity: 0.55; font-feature-settings: "tnum"; }
+
+/* A genre's page: coloured band (same colours as the tiles), artists, chips */
+.genre-hero { padding: 16px 18px; border-radius: 14px; color: white; }
+.genre-hero-title { font-size: 2em; font-weight: 800; }
+.genre-hero-sub { font-weight: 700; opacity: 0.85; }
+.genre-hero flowboxchild { padding: 0; background: none; }
+button.pill.on-color {
+  color: white;
+  background-color: alpha(black, 0.2);
+}
+button.pill.on-color:hover { background-color: alpha(black, 0.3); }
+button.genre-artist { padding: 4px; border-radius: 12px; }
+togglebutton.genre-chip, button.genre-chip {
+  border-radius: 999px;
+  padding: 2px 12px;
+  min-height: 28px;
+}
+.genre-chips scrollbar, .genre-artists scrollbar { opacity: 0.6; }
+
+
+/* ★ for the playing track (mini player, player dialog) */
+button.np-star { opacity: 0.55; }
+button.np-star:hover { opacity: 1; }
+button.np-star.on { opacity: 1; color: #e5a50a; }
+
+/* Album / artist lists: a Gtk.ColumnView, as in Nautilus — GTK draws the column titles
+   (sort arrow, resize handles). Their see-through background and row hover live in
+   override.css, above any user gtk.css. Room on both sides; the right side also
+   keeps clear of the A–Z rail (listview.SIDE must cover these paddings). */
+columnview.table-view { padding: 0 36px 0 18px; }
+columnview.table-view > listview > row { border-radius: 8px; }
+columnview.table-view > listview > row > cell { padding-top: 4px; padding-bottom: 4px; }
+.table-holder, .table-holder scrolledwindow, .table-holder viewport {
+  background-color: transparent;
+}
+/* column titles: no line at the top of the list, a dark one (as under a header bar)
+   once the rows scroll beneath them — like Nautilus */
+columnview.table-view > header { border-bottom: 1px solid transparent; box-shadow: none; }
+columnview.table-view > header > button { background: none; box-shadow: none; }
+columnview.table-view > header > button:hover { background-color: alpha(currentColor, 0.06); }
+columnview.table-view.scrolled > header { border-bottom-color: @headerbar_shade_color; }
+columnview.table-view .cover { border-radius: 4px; }
+
+/* Play / Shuffle pills on album, artist and playlist pages: Adwaita's pills have 32 px
+   side padding; with the ★ next to them that pushed a 360 px phone window 1 px wide */
+
+/* Content pages: the top bar (search, view buttons) in the same colour as the page and
+   its lists below — with this libadwaita the header bar is otherwise a shade lighter.
+   The sidebar keeps its own colour. */
+.main-content toolbarview > .top-bar,
+.main-content toolbarview > .top-bar headerbar {
+  background-color: @window_bg_color;
+}
+
+/* Playlist pages: a simple header — round Play a bit bigger than Shuffle */
+button.circular.playlist-play { min-width: 42px; min-height: 42px; }
+
+/* Queue: drag handle, the row being dragged, where it will land */
+.drag-handle { opacity: 0.45; }
+row:hover .drag-handle { opacity: 0.9; }
+row.dragging { opacity: 0.5; }
+row.drop-above { box-shadow: inset 0 2px @accent_color; }
+row.drop-below { box-shadow: inset 0 -2px @accent_color; }
+
+/* button rows that wrap (widgets.button_row, FlowBox fallback): no tile look */
+flowbox.button-row > flowboxchild { padding: 0; background: none; }

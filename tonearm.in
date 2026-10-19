@@ -1,0 +1,8 @@
+#!@PYTHON@
+import sys
+
+sys.path.insert(1, "@PKGDATADIR@")
+
+from tonearm.main import main  # noqa: E402
+
+sys.exit(main())

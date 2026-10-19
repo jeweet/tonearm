@@ -1,0 +1,98 @@
+#!/usr/bin/env python3
+"""Fake pactl for tests: keeps sink/module state in $FAKE_PACTL_STATE (JSON)."""
+import json
+import os
+import sys
+import time
+
+PATH = os.environ["FAKE_PACTL_STATE"]
+
+
+def load():
+    with open(PATH) as f:
+        return json.load(f)
+
+
+def save(st):
+    st["serial"] = st.get("serial", 0) + 1
+    tmp = PATH + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(st, f)
+    os.replace(tmp, PATH)
+
+
+def sink(st, name):
+    for s in st["sinks"]:
+        if s["name"] == name or str(s["index"]) == name:
+            return s
+    sys.exit(f"no sink {name}")
+
+
+a = sys.argv[1:]
+st = load()
+cmd = a[0]
+if os.environ.get("FAKE_PACTL_STRICT"):
+    # an older / stricter server: no get-default-sink, no fancy module arguments
+    if cmd == "get-default-sink":
+        sys.exit("No valid command specified.")
+    if cmd == "load-module" and any("dont_move" in x or '"' in x for x in a[2:]):
+        sys.exit("Failure: Module initialization failed")
+if cmd == "info":
+    print("Server Name: PulseAudio (on PipeWire 1.2.7)")
+    print(f"Default Sink: {st['default']}")
+    sys.exit(0)
+if cmd == "get-default-sink":
+    print(st["default"])
+elif cmd == "set-default-sink":
+    st["default"] = a[1]
+    save(st)
+elif cmd == "list" and a[2] == "sinks":
+    for s in st["sinks"]:
+        print(f"{s['index']}\t{s['name']}\tmodule\tfloat32le 2ch 48000Hz\tIDLE")
+elif cmd == "list" and a[2] == "modules":
+    for m in st["modules"]:
+        print(f"{m['id']}\t{m['name']}\t{m['args']}")
+elif cmd == "load-module":
+    mid = st["next"]
+    st["next"] += 1
+    args = " ".join(a[2:])
+    st["modules"].append({"id": mid, "name": a[1], "args": args})
+    if a[1] == "module-null-sink":
+        name = [x for x in a[2:] if x.startswith("sink_name=")][0].split("=", 1)[1]
+        st["sinks"].append({"index": mid + 100, "name": name, "volume": 100, "mute": False,
+                            "module": mid})
+    save(st)
+    print(mid)
+elif cmd == "unload-module":
+    mid = int(a[1])
+    st["modules"] = [m for m in st["modules"] if m["id"] != mid]
+    st["sinks"] = [s for s in st["sinks"] if s.get("module") != mid]
+    save(st)
+elif cmd == "set-sink-volume":
+    s = sink(st, a[1])
+    s["volume"] = int(a[2].rstrip("%"))
+    st.setdefault("events", []).append(s["index"])
+    save(st)
+elif cmd == "set-sink-mute":
+    s = sink(st, a[1])
+    s["mute"] = a[2] in ("1", "true", "yes")
+    st.setdefault("events", []).append(s["index"])
+    save(st)
+elif cmd == "get-sink-volume":
+    v = sink(st, a[1])["volume"]
+    print(f"Volume: front-left: 0 / {v}% / 0 dB,   front-right: 0 / {v}% / 0 dB")
+elif cmd == "get-sink-mute":
+    print("Mute: " + ("yes" if sink(st, a[1])["mute"] else "no"))
+elif cmd == "subscribe":
+    seen = len(st.get("events", []))
+    while True:
+        time.sleep(0.03)
+        try:
+            ev = load().get("events", [])
+        except (OSError, ValueError):
+            continue
+        for idx in ev[seen:]:
+            print(f"Event 'change' on sink #{idx}", flush=True)
+        seen = len(ev)
+else:
+    sys.exit(f"fake pactl: unsupported {a}")

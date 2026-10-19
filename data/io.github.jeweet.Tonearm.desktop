@@ -1,0 +1,26 @@
+[Desktop Entry]
+Name=Tonearm
+GenericName=Music Remote
+Comment=Browse and play your Kodi music library
+Exec=tonearm
+Icon=io.github.jeweet.Tonearm
+Terminal=false
+Type=Application
+Categories=AudioVideo;Audio;Player;GTK;GNOME;
+Keywords=kodi;remote;music;mpris;lidarr;
+StartupNotify=true
+DBusActivatable=false
+X-Purism-FormFactor=Workstation;Mobile;
+Actions=surprise;now-playing;wake;
+
+[Desktop Action surprise]
+Name=Surprise Me
+Exec=tonearm --surprise
+
+[Desktop Action now-playing]
+Name=Now Playing
+Exec=tonearm --now-playing
+
+[Desktop Action wake]
+Name=Wake Up Kodi
+Exec=tonearm --wake

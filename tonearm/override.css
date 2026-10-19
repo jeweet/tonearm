@@ -1,0 +1,134 @@
+/* Tonearm: the few styles that must win over a user theme (~/.config/gtk-4.0/gtk.css,
+   which GTK ranks above any app's style.css). Loaded at USER + 1 by main.py. */
+
+/* Album / artist lists and grids sit on the page, without the darker "view" colour;
+   grid tiles (album grids, the artist page's album grid) show hover by their cover's
+   zoom only, no background */
+columnview.table-view,
+columnview.table-view > header,
+columnview.table-view > listview,
+columnview.table-view > listview > row,
+columnview.table-view > listview > row > cell,
+gridview.album-grid,
+gridview.album-grid > child,
+gridview.album-grid > child:hover,
+gridview.album-grid > child:selected,
+flowbox.album-flow > flowboxchild,
+flowbox.album-flow > flowboxchild:hover,
+flowbox.album-flow > flowboxchild:active,
+flowbox.album-flow > flowboxchild:selected {
+  background-color: transparent;
+  background-image: none;
+}
+columnview.table-view > listview > row:hover { background-color: alpha(currentColor, 0.05); }
+columnview.table-view > listview > row:active { background-color: alpha(currentColor, 0.08); }
+
+/* Progress in the player bar: a thin line on phones, a slim rounded accent line
+   between the times on wider windows — and the same line in the player (np-seek) */
+progressbar.np-progress trough,
+progressbar.np-progress progress { min-height: 2px; border-radius: 0; }
+progressbar.np-progress trough { background-color: alpha(currentColor, 0.12); border: none; box-shadow: none; }
+progressbar.np-progress progress { background-color: @accent_bg_color; background-image: none; border: none; }
+.now-playing-bar.wide progressbar.np-progress trough,
+.now-playing-bar.wide progressbar.np-progress progress { min-height: 4px; border-radius: 9999px; }
+
+/* Player controls — one design in the player bar and the player (player.control()):
+   play / pause is the Jump Back In cards' button (a round accent-filled disc with a
+   white icon, grows a touch on hover, dips when pressed); previous / next / shuffle /
+   repeat are plain round icons with a soft circle on hover. No Adwaita button chrome. */
+.np-controls button.np-play,
+.np-controls button.np-ctl,
+.np-controls button.np-play:hover, .np-controls button.np-ctl:hover,
+.np-controls button.np-play:focus, .np-controls button.np-ctl:focus,
+.np-controls button.np-ctl:checked {
+  padding: 0;
+  border: none;
+  border-color: transparent;
+  outline: none;
+  box-shadow: none;
+  background-image: none;
+  border-radius: 9999px;
+  transition: transform 160ms ease-out, filter 160ms ease-out, background-color 160ms ease-out;
+}
+.np-controls button.np-play {
+  background-color: @accent_bg_color;
+  color: @accent_fg_color;
+  min-width: 38px; min-height: 38px; -gtk-icon-size: 16px;
+}
+.np-controls button.np-play:hover { background-color: @accent_bg_color; transform: scale(1.08); filter: brightness(1.08); }
+.np-controls button.np-play:active { transform: scale(0.95); }
+.np-controls button.np-ctl {
+  background-color: transparent;
+  color: inherit;
+  min-width: 36px; min-height: 36px; -gtk-icon-size: 16px;
+}
+.np-controls button.np-ctl:hover { background-color: alpha(currentColor, 0.08); }
+.np-controls button.np-ctl:active { background-color: alpha(currentColor, 0.14); transform: scale(0.95); }
+.np-controls button.np-ctl:checked,
+.np-controls button.np-ctl.on { color: @accent_color; background-color: transparent; }
+.np-controls button.np-ctl:checked:hover,
+.np-controls button.np-ctl.on:hover { background-color: alpha(currentColor, 0.08); }
+
+/* …the same, bigger, in the player: 40 + 52 + 68 + 52 + 40 + 4 × 14 = 308 px
+   (phone, .compact: 268 px) */
+.player-controls button.np-play { min-width: 68px; min-height: 68px; -gtk-icon-size: 26px; }
+.player-controls button.np-ctl { min-width: 52px; min-height: 52px; -gtk-icon-size: 22px; }
+.player-controls button.np-ctl.side { min-width: 40px; min-height: 40px; -gtk-icon-size: 16px; }
+.player-controls.compact button.np-play { min-width: 60px; min-height: 60px; -gtk-icon-size: 24px; }
+.player-controls.compact button.np-ctl { min-width: 46px; min-height: 46px; -gtk-icon-size: 20px; }
+.player-controls.compact button.np-ctl.side { min-width: 40px; min-height: 40px; -gtk-icon-size: 16px; }
+
+/* The player's seek line: exactly the player bar's progress — slim, rounded, accent
+   filled — and no knob (click or drag anywhere on it to seek) */
+scale.np-seek { padding: 8px 0; margin: 0; }
+scale.np-seek trough {
+  min-height: 4px; border-radius: 9999px; border: none; outline: none; box-shadow: none;
+  background-color: alpha(currentColor, 0.12); background-image: none;
+}
+scale.np-seek highlight {
+  min-height: 4px; border-radius: 9999px; border: none; box-shadow: none;
+  background-color: @accent_bg_color; background-image: none;
+}
+scale.np-seek slider {
+  min-width: 0; min-height: 0; margin: 0; padding: 0;
+  background: none; border: none; outline: none; box-shadow: none; opacity: 0;
+}
+
+
+/* The line above the player bar: 1 px, the shade of the line under the list column
+   titles (window.py makes the bottom bars "raised-border"; no soft shadow) */
+toolbarview.main-toolbar > .bottom-bar.raised.border,
+toolbarview.main-toolbar > .bottom-bar.raised {
+  box-shadow: 0 -1px @headerbar_shade_color;
+  background: none;            /* the glass player bar paints itself (.now-playing-bar) */
+}
+
+/* Adwaita pads a toolbar view's bar box 3 px top and bottom (.collapse-spacing). With
+   the glass player bar that showed as clear strips above and below it: no padding,
+   so the bar reaches its line on top and the window edge (or the tab bar) below */
+toolbarview.main-toolbar > .bottom-bar.collapse-spacing,
+toolbarview.main-toolbar > .bottom-bar .collapse-spacing {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+/* First start (no Kodi yet): no header bar band — only the window buttons float there */
+headerbar.welcome-header { background: none; box-shadow: none; }
+
+/* artist / album page buttons: Play, Shuffle and the round Lidarr button fit one line on
+   a 360 px phone (here, so a gtk.css with roomier pills can't push them onto two) */
+button.pill.page-pill { padding: 8px 18px; }
+button.circular.lidarr-round { min-width: 38px; min-height: 38px; padding: 0; }
+
+/* rating stars (player, album page): plain stars, the lit ones gold */
+.rating-stars button.rating-star {
+  min-width: 0; min-height: 0; padding: 3px; background: none; box-shadow: none;
+}
+.rating-stars button.rating-star:hover .star-off { opacity: 0.45; }
+.rating-stars .star-off { opacity: 0.22; }
+.rating-stars .star-on { color: #e5a50a; }
+.rating-text { color: #e5a50a; letter-spacing: 1px; }
+.party-badge {   /* under the player's "Now Playing" title: small, to fit the header */
+  font-size: 0.7em; font-weight: 700; padding: 0 7px; border-radius: 99px;
+  color: @accent_fg_color; background-color: @accent_bg_color;
+}

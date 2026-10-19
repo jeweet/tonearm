@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.jeweet.Tonearm</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>Tonearm</name>
+  <summary>Play your Kodi music library from anywhere</summary>
+  <developer id="io.github.jeweet">
+    <name>Tonearm contributors</name>
+  </developer>
+  <description>
+    <p>Tonearm is a music remote for Kodi: browse the music library of one or more Kodi
+      systems and play it on them, from the desktop or a Linux phone.</p>
+    <ul>
+      <li>Spotlight on what's new, with jump back in, coming releases and radio picks</li>
+      <li>Albums and artists as grids or sortable, responsive lists</li>
+      <li>Genres, decades, recently and most played, favorites and playlists</li>
+      <li>Endless radio from a genre or a decade, and a sleep timer</li>
+      <li>Fuzzy search across artists, albums and songs</li>
+      <li>Offline cache with fast incremental library updates</li>
+      <li>Lock-screen and media-key controls via MPRIS</li>
+      <li>Optional Lidarr integration</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">io.github.jeweet.Tonearm.desktop</launchable>
+  <url type="homepage">https://github.com/jeweet/tonearm</url>
+  <url type="bugtracker">https://github.com/jeweet/tonearm/issues</url>
+  <url type="vcs-browser">https://github.com/jeweet/tonearm</url>
+  <branding>
+    <color type="primary" scheme_preference="light">#8ad5f5</color>
+    <color type="primary" scheme_preference="dark">#0b4a66</color>
+  </branding>
+  <!-- Flathub needs screenshots: add PNGs to the repository and list them here, e.g.
+  <screenshots>
+    <screenshot type="default">
+      <image>https://raw.githubusercontent.com/jeweet/Tonearm/main/data/screenshots/spotlight.png</image>
+      <caption>The Spotlight page</caption>
+    </screenshot>
+  </screenshots>
+  -->
+  <requires>
+    <display_length compare="ge">360</display_length>
+  </requires>
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+    <control>touch</control>
+  </supports>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="0.4.0" date="2026-10-18">
+      <description>
+        <p>Genres and decades pages, separate Recently and Most Played sections,
+          favorites for playlists, queue reordering, a sleep timer and many layout
+          improvements.</p>
+      </description>
+    </release>
+    <release version="0.3.0" date="2026-10-17"/>
+    <release version="0.1.0" date="2026-10-17"/>
+  </releases>
+</component>

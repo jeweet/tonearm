@@ -1,0 +1,33 @@
+{
+  "id": "io.github.jeweet.Tonearm",
+  "runtime": "org.gnome.Platform",
+  "runtime-version": "50",
+  "sdk": "org.gnome.Sdk",
+  "command": "tonearm",
+  "finish-args": [
+    "--share=network",
+    "--share=ipc",
+    "--socket=wayland",
+    "--socket=fallback-x11",
+    "--device=dri",
+    "--socket=pulseaudio",
+    "--own-name=org.mpris.MediaPlayer2.Tonearm",
+    "--talk-name=org.freedesktop.secrets"
+  ],
+  "cleanup": [
+    "*.pyc",
+    "/share/man"
+  ],
+  "modules": [
+    {
+      "name": "tonearm",
+      "buildsystem": "meson",
+      "sources": [
+        {
+          "type": "dir",
+          "path": ".."
+        }
+      ]
+    }
+  ]
+}
