@@ -8,6 +8,7 @@ from __future__ import annotations
 from collections import Counter
 
 from .colors import distinct_colors, stable_index
+from .years import clean_year
 
 
 def split(genre: str | list | None) -> list[str]:
@@ -108,7 +109,7 @@ def related(tags: list, genre: str, limit: int = 6) -> list[tuple[str, int]]:
 
 def decades(years: list) -> list[tuple[int, int]]:
     """(decade, albums) oldest first; albums without a year are left out."""
-    c = Counter((int(y) // 10) * 10 for y in years if y and int(y) > 0)
+    c = Counter((clean_year(y) // 10) * 10 for y in years if clean_year(y))
     return sorted(c.items())
 
 

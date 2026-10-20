@@ -182,6 +182,7 @@ class ArtistListPage(Adw.NavigationPage):
         self.table = TableView(
             artist_specs(), self.store, prefix_key="avatar", title_key="name",
             get=lambda o: o.artist, title=lambda a: a.name,
+            meta_order=["albums", "years", "genre"],   # "12 albums · 1990–2020 · Rock"
             prefix=(ArtistAvatar, lambda w, o: w.bind(self.session, o.artist)),
             on_sort=self._sort_clicked,
             on_activate=lambda o: window.show_artist(o.artist.id))

@@ -9,6 +9,8 @@ from __future__ import annotations
 import datetime as _dt
 from collections import Counter
 
+from .years import clean_year
+
 SESSION_GAP = _dt.timedelta(hours=4)   # plays this close to the album's last play: one sitting
 RECENT = _dt.timedelta(days=30)
 
@@ -82,7 +84,7 @@ def radio_picks(songs: list[dict], known_genres: set | None = None, limit: int =
     canon = {g.lower(): g for g in known_genres or ()}
     for s in songs:
         weight = max(1, int(s.get("playcount") or 0))
-        year = int(s.get("year") or 0)
+        year = clean_year(s.get("year"))
         decade = (year // 10) * 10 if year > 0 else None
         gs = [canon.get(g.lower(), g) for g in _genres(s.get("genre"))]
         if canon:

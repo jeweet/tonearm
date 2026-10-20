@@ -285,6 +285,7 @@ class PlayerDialog(Adw.Dialog):
                           window.activate_action("win.fav-song",
                                                  GLib.Variant("i", self.session.state.songid)))
         header.pack_start(self.star)
+
         tv.add_top_bar(header)
 
         self.stack = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE, vexpand=True)
@@ -355,7 +356,9 @@ class PlayerDialog(Adw.Dialog):
         times.append(self.dur_label)
 
         # the player bar's controls, bigger (style.css .player-controls)
-        controls = Gtk.Box(spacing=14, halign=Gtk.Align.CENTER, margin_top=14, margin_bottom=8)
+        # (six buttons: 12 px apart they fit the 440 px dialog; a phone's breakpoint
+        # makes them smaller and closer)
+        controls = Gtk.Box(spacing=12, halign=Gtk.Align.CENTER, margin_top=14, margin_bottom=8)
         controls.add_css_class("np-controls")
         controls.add_css_class("player-controls")
         self.shuffle_btn = control("tonearm-shuffle-symbolic", "Shuffle", toggle=True)
@@ -366,12 +369,15 @@ class PlayerDialog(Adw.Dialog):
         prev.connect("clicked", lambda *_: self.session.previous())
         self.play_btn = control("tonearm-play-symbolic", "Play/Pause", "play")
         self.play_btn.connect("clicked", lambda *_: self.session.play_pause())
+        # Stop, right of Play / Pause: Kodi stops, the queue stays
+        self.stop_btn = control("tonearm-stop-symbolic", "Stop")
+        self.stop_btn.connect("clicked", lambda *_: self.session.stop())
         nxt = control("tonearm-next-symbolic", "Next")
         nxt.connect("clicked", lambda *_: self.session.next())
         self.repeat_btn = control(REPEAT_ICON["off"], "Repeat")
         self.repeat_btn.add_css_class("side")
         self.repeat_btn.connect("clicked", lambda *_: self.session.cycle_repeat())
-        for w in (self.shuffle_btn, prev, self.play_btn, nxt, self.repeat_btn):
+        for w in (self.shuffle_btn, prev, self.play_btn, self.stop_btn, nxt, self.repeat_btn):
             controls.append(w)
 
         vol = Gtk.Box(spacing=6, margin_top=12)
@@ -498,6 +504,7 @@ class PlayerDialog(Adw.Dialog):
         if track:
             self._fetch_format(400 if self.format_label.get_visible() else 0)
         star_state(self.star, st.songid in self.session.fav_song_ids() if st.songid else None)
+        self.stop_btn.set_sensitive(st.active)
         self.rating.set_visible(bool(st.songid))
         party = st.active and st.partymode
         self.party_badge.set_visible(party)

@@ -19,11 +19,15 @@ install_subdir('tonearm',
 conf = configuration_data()
 conf.set('PYTHON', py.full_path())
 conf.set('PKGDATADIR', pkgdatadir)
-configure_file(
+# The launcher: generated, then installed with install_data — its install_mode makes
+# it executable for sure (a configure_file()'s own install mode wasn't always applied,
+# and "flatpak run" then failed with "execvp tonearm: Permission denied")
+launcher = configure_file(
   input: 'tonearm.in',
   output: 'tonearm',
   configuration: conf,
-  install: true,
+)
+install_data(launcher,
   install_dir: get_option('bindir'),
   install_mode: 'rwxr-xr-x',
 )

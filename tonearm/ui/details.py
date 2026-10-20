@@ -481,14 +481,15 @@ class ArtistPage(Adw.NavigationPage):
             self._fill_flow()
             n = len(albums)
             songs = sum(a.song_count for a in albums)
+            # albums, years, genres first (as everywhere an artist is described)
             bits = [plural(n, 'album')]
-            if songs:
-                bits.append(f"{songs} songs")
-                bits.append(fmt_total(sum(a.duration for a in albums)))
             if artist.years:
                 bits.append(artist.years)
             if artist.genre:
                 bits.append(artist.genre)
+            if songs:
+                bits.append(f"{songs} songs")
+                bits.append(fmt_total(sum(a.duration for a in albums)))
             self.meta.set_label(" · ".join(bits))
 
         run_async(cache.albums_for_artist, self.artistid, done=done)

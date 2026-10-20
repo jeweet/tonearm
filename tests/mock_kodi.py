@@ -175,6 +175,12 @@ class FakeLibrary:
             return self._list(self.albums, "albums", "albumid", p)
         if method == "AudioLibrary.GetSongs":
             return self._list(self.songs, "songs", "songid", p)
+        if method == "AudioLibrary.GetAlbumDetails" and set(p.get("properties", [])) <= {
+                "originaldate", "releasedate"}:
+            a = self.albums[p["albumid"]]
+            return {"albumdetails": {"albumid": a["albumid"], "label": a["title"],
+                                     "originaldate": a.get("originaldate", ""),
+                                     "releasedate": a.get("releasedate", "")}}
         if method == "AudioLibrary.GetAlbumDetails":
             return {"albumdetails": self._project(self.albums[p["albumid"]], p["properties"], "albumid")}
         if method == "AudioLibrary.GetSongDetails":

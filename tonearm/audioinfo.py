@@ -1,6 +1,6 @@
 """The playing track's audio format, from Kodi's MusicPlayer info labels (pure, testable).
 
-"FLAC · 24-bit / 96 kHz", "MP3 · 320 kbps · 44.1 kHz", "DSD64 · 2.8 MHz", …
+"FLAC · 24-bit / 96 kHz · 2800 kbps", "MP3 · 320 kbps · 44.1 kHz", "DSD64 · 2.8 MHz", …
 """
 from __future__ import annotations
 
@@ -70,6 +70,8 @@ def describe(labels: dict | None) -> str:
                 parts.append(f"{bits}-bit / {_fmt_khz(khz)}")
             elif khz:
                 parts.append(_fmt_khz(khz))
+            if kbps:                      # lossless too: the file's actual bitrate
+                parts.append(f"{kbps} kbps")
         else:
             if kbps:
                 parts.append(f"{kbps} kbps")

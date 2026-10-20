@@ -114,7 +114,7 @@ class TitleCell(Gtk.Box):
         if self.item is None:
             return
         shown, bits = set(), []
-        for spec in self.table.data_specs:
+        for spec in self.table.meta_specs:
             fn = spec.meta or spec.value
             text = fn(self.item) if fn else ""
             if spec.key in self.table.names:
@@ -141,11 +141,15 @@ class TableView:
                  get: Callable, title: Callable, extra: Callable | None = None,
                  prefix: tuple | None = None, suffix_key: str | None = None,
                  suffix: tuple | None = None, on_sort=None, on_activate=None,
-                 menu: Callable | None = None):
+                 menu: Callable | None = None, meta_order: list[str] | None = None):
         self.specs = specs
         self.menu = menu          # obj -> Gio.MenuModel for right-click / long-press
         fixed = {prefix_key, title_key, suffix_key}
         self.data_specs = [s for s in specs if s.key not in fixed]
+        # the grey line under a title: hidden columns in this order (default: the
+        # columns' own order)
+        order = {k: i for i, k in enumerate(meta_order or [])}
+        self.meta_specs = sorted(self.data_specs, key=lambda s: order.get(s.key, len(order)))
         self.get, self.title_of = get, title
         self.extra_of = extra or (lambda o: None)
         self.on_sort = on_sort

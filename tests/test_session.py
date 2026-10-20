@@ -114,7 +114,7 @@ class SessionTests(unittest.TestCase):
         fmt = []
         s.fetch_stream_info(fmt.append)
         self.assertTrue(self.pump(lambda: fmt))
-        self.assertEqual(fmt[0], "FLAC · 24-bit / 96 kHz")
+        self.assertEqual(fmt[0], "FLAC · 24-bit / 96 kHz · 2800 kbps")
 
     def test_ratings(self):
         s = self.session
@@ -184,6 +184,15 @@ class SessionTests(unittest.TestCase):
         s.play_folder("/music/Zebra/", shuffle=True)
         self.assertTrue(self.pump(lambda: getattr(self.lib, "added_dirs", None) == ["/music/Zebra/"]))
         self.assertTrue(self.pump(lambda: s.state.active))
+
+    def test_year_one_albums(self):
+        s = self.session
+        self.lib.albums[3].update(year=1, originaldate="1992-05-01")
+        self.lib.albums[4].update(year=1)                 # no date at all
+        self.assertTrue(self.pump(lambda: any(e[0] == "sync-finished" for e in self.events)))
+        self.assertTrue(self.pump(lambda: s.cache.album(3).year == 1992))
+        self.assertEqual(s.cache.album(4).year, 0)       # shown without a year
+        self.assertTrue(self.pump(lambda: s.cache.year_fix_ids() == []))
 
     def test_kodi_favourites(self):
         s = self.session

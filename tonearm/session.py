@@ -22,6 +22,7 @@ from .kodi import (INVALID_PARAMS, Instance, KodiClient, KodiConnectionError, Ko
 from .lidarr import LidarrClient, norm_name
 from .sync import LibrarySync, SyncCancelled, SyncResult
 from .util import idle, run_async
+from .years import year_from_date
 from . import audioinfo, favourites, volumebridge, wol
 from .playlists import PlaylistStore
 from .sleeptimer import SleepTimer
@@ -152,6 +153,7 @@ class Session(GObject.Object):
         self._rating_checks: set = set()
         self._rating_check_id = 0
         self.connect("sync-finished", lambda *_: self.refresh_ratings())
+        self.connect("sync-finished", lambda *_: self.fix_album_years())
         self._synced_once = False
         self._last_pos = None
         self._watch_key = None
@@ -292,6 +294,7 @@ class Session(GObject.Object):
             self._learn_mac(gen, client)
             self.refresh_ratings()
             self._fetch_power(gen, client)
+            self.fix_album_years()
             self.emit("instance-changed")
             if self.config.prefs.get("notifications", True) and self.listener is None:
                 self._start_listener()
@@ -472,6 +475,39 @@ class Session(GObject.Object):
             return GLib.SOURCE_REMOVE
 
         self._rating_check_id = GLib.timeout_add(1200, go)
+
+    # -- albums Kodi gave "year 1": their release date's year instead -----------------
+    def fix_album_years(self):
+        cache, client, gen = self.cache, self.client, self._generation
+        if cache is None or client is None or not self.props.connected:
+            return
+        ids = cache.year_fix_ids()
+        if not ids:
+            return
+
+        def work():
+            years, done = {}, []
+            for i in range(0, len(ids), 50):
+                chunk = ids[i:i + 50]
+                res = client.batch([("AudioLibrary.GetAlbumDetails", {
+                    "albumid": a, "properties": ["originaldate", "releasedate"]})
+                    for a in chunk], timeout=60)
+                for aid, r in zip(chunk, res):
+                    done.append(aid)
+                    det = r.get("albumdetails") if isinstance(r, dict) else None
+                    if det:
+                        years[aid] = (year_from_date(det.get("originaldate"))
+                                      or year_from_date(det.get("releasedate")))
+            cache.fix_years(years, done)
+            return sum(1 for y in years.values() if y)
+
+        def done(n):
+            if gen == self._generation and n:
+                log.info("Found the real year of %d album(s)", n)
+                self._invalidate_index()
+                self.emit("library-changed")
+
+        run_async(work, done=done, error=lambda e: log.info("Album years: %s", e))
 
     # -- power (Kodi's System.* calls) ---------------------------------------
     # key: (Kodi's "can…" property or None = always, JSON-RPC method)

@@ -6,6 +6,7 @@ import os
 import sqlite3
 import threading
 from dataclasses import dataclass
+from .years import clean_year
 
 SCHEMA_VERSION = 3  # v3: album fanart, artist art fallbacks
 
@@ -56,6 +57,8 @@ CREATE TABLE IF NOT EXISTS ratings (
     rating INTEGER NOT NULL,
     PRIMARY KEY (kind, id)
 );
+-- albums Kodi gave a nonsense year (1, 2…): looked up again by their release date
+CREATE TABLE IF NOT EXISTS year_fix (id INTEGER PRIMARY KEY);
 CREATE INDEX IF NOT EXISTS songs_album ON songs(albumid);
 CREATE INDEX IF NOT EXISTS aa_artist ON album_artists(artistid);
 CREATE INDEX IF NOT EXISTS albums_added ON albums(dateadded);
@@ -163,10 +166,15 @@ class LibraryCache:
             self._db.executescript(SCHEMA)
             if self.get_meta("schema") != str(SCHEMA_VERSION):
                 # Layout changed: rebuild the tables; the next sync refills them.
-                for t in ("artists", "albums", "album_artists", "songs", "ratings", "meta"):
+                for t in ("artists", "albums", "album_artists", "songs", "ratings", "year_fix", "meta"):
                     self._db.execute(f"DROP TABLE IF EXISTS {t}")
                 self._db.executescript(SCHEMA)
                 self._reset_locked()
+            # caches from before clean_year(): their "year 1" albums
+            self._db.execute("INSERT OR IGNORE INTO year_fix SELECT id FROM albums "
+                             "WHERE year > 0 AND year < 1000")
+            self._db.execute("UPDATE albums SET year = 0 WHERE year > 0 AND year < 1000")
+            self._db.commit()
 
     def _open(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.path, check_same_thread=False, timeout=15)
@@ -201,7 +209,7 @@ class LibraryCache:
                 pass
 
     def _reset_locked(self):
-        for t in ("artists", "albums", "album_artists", "songs", "ratings", "meta"):
+        for t in ("artists", "albums", "album_artists", "songs", "ratings", "year_fix", "meta"):
             self._db.execute(f"DELETE FROM {t}")
         self._db.execute("INSERT OR REPLACE INTO meta VALUES ('schema', ?)", (str(SCHEMA_VERSION),))
         self._db.commit()
@@ -257,14 +265,17 @@ class LibraryCache:
             self._db.commit()
 
     def upsert_albums(self, albums: list[dict]):
-        rows, links, ids = [], [], []
+        rows, links, ids, bad_years = [], [], [], []
         for a in albums:
             aid = a["albumid"]
             ids.append((aid,))
+            year = clean_year(a.get("year"))
+            if not year and a.get("year"):
+                bad_years.append((aid,))        # "1": look up its release date later
             rows.append((
                 aid, a.get("title") or a.get("label") or "",
                 a.get("displayartist") or _join(a.get("artist")),
-                int(a.get("year") or 0), _join(a.get("genre")), _art(a, "thumbnail", "thumb"),
+                year, _join(a.get("genre")), _art(a, "thumbnail", "thumb"),
                 _art(a, "fanart", "fanart", "artist.fanart", "albumartist.fanart"),
                 a.get("dateadded") or "", a.get("datemodified") or "",
             ))
@@ -277,6 +288,20 @@ class LibraryCache:
                    VALUES (?,?,?,?,?,?,?,?,?)""", rows)
             self._db.executemany("DELETE FROM album_artists WHERE albumid=?", ids)
             self._db.executemany("INSERT OR IGNORE INTO album_artists VALUES (?,?,?)", links)
+            self._db.executemany("INSERT OR IGNORE INTO year_fix VALUES (?)", bad_years)
+            self._db.commit()
+
+    # -- albums with a nonsense year from Kodi ---------------------------------
+    def year_fix_ids(self) -> list[int]:
+        with self._lock:
+            return [r[0] for r in self._db.execute("SELECT id FROM year_fix")]
+
+    def fix_years(self, years: dict[int, int], done_ids):
+        """Store the years found (id → year) and forget ``done_ids``."""
+        with self._lock:
+            self._db.executemany("UPDATE albums SET year=? WHERE id=?",
+                                 [(y, i) for i, y in years.items() if y])
+            self._db.executemany("DELETE FROM year_fix WHERE id=?", [(i,) for i in done_ids])
             self._db.commit()
 
     def upsert_songs(self, songs: list[dict]):

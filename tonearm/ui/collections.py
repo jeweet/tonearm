@@ -8,6 +8,7 @@ from gi.repository import Adw, Gio, GLib, Gtk, Pango
 from ..cache import Album
 from ..colors import TILE_COLORS, distinct_colors
 from ..util import fmt_time, fmt_total, plural, run_async
+from ..years import clean_year
 from .albumview import AlbumView, view_options_button
 from .widgets import (FAVOURITES, AlbumObj, Cover, FavToggle, Spinner, ask_name,
                       attach_context_menu, follow, pill, plain_row, scrolled, set_menu,
@@ -40,7 +41,7 @@ def _album_from_kodi(a: dict) -> Album:
     artist = a.get("displayartist") or ", ".join(a.get("artist") or [])
     genre = ", ".join(a.get("genre") or []) if isinstance(a.get("genre"), list) else (a.get("genre") or "")
     return Album(a.get("albumid", 0), a.get("title") or a.get("label") or "", artist,
-                 int(a.get("year") or 0), genre, a.get("thumbnail") or "", "")
+                 clean_year(a.get("year")), genre, a.get("thumbnail") or "", "")
 
 
 # ---------------------------------------------------------------------------

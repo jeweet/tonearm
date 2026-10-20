@@ -7,6 +7,7 @@ import traceback
 from gi.repository import GLib
 
 from .workers import DaemonPool
+from .years import clean_year, year_from_date  # noqa: F401  (re-exported)
 
 _pool = DaemonPool(4, "tonearm-worker")
 

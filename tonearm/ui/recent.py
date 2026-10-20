@@ -184,9 +184,7 @@ class CardArt(Gtk.Overlay):
         self.add_css_class("card")
         self.add_css_class(css)
         self.set_overflow(Gtk.Overflow.HIDDEN)
-        # The picture is an unmeasured overlay, so a 1600 px fanart never sizes the card;
-        # the content (added next, measured) decides the size and draws on top.
-        self.set_child(Gtk.Box())
+        # The picture is an unmeasured overlay, so a 1600 px fanart never sizes the card.
         self.art = Gtk.Picture(content_fit=Gtk.ContentFit.COVER, can_shrink=True, opacity=0,
                                can_target=False)
         self.art.add_css_class("card-art")
@@ -194,8 +192,13 @@ class CardArt(Gtk.Overlay):
         _drop_art(self, self.art)
 
     def set_content(self, widget):
-        self.add_overlay(widget)
-        self.set_measure_overlay(widget, True)
+        """The content is the card's main child, so the card is exactly as tall as it
+        needs at its width. (As a measured overlay it was measured without a width:
+        wrapped text then got too little height and the block sat low — clipped at the
+        bottom — e.g. a one-album artist in "From your library".) The picture is moved
+        in front of it in the child list, so it's still drawn underneath."""
+        self.set_child(widget)
+        self.art.insert_before(self, widget)
 
     def load_art(self, session, key: str, sharp: bool):
         if not key or session.artwork is None:
@@ -448,9 +451,10 @@ class Spotlight(CardArt):
         n = artist.album_count
         # one line: a long genre list is shortened ("Hip Hop, Neo Soul +9"), the line
         # itself ellipsized as a last resort on a narrow phone
+        # albums, years, genres — the order of the artist list's subtitles
         facts = _label(" · ".join(b for b in (
-            short_genres(artist.genre, 34 if big else 24), artist.years,
-            plural(n, 'album') if rediscover and n else "") if b),
+            plural(n, 'album') if rediscover and n else "", artist.years,
+            short_genres(artist.genre, 34 if big else 24)) if b),
             ("dim-label",))
         self.rediscover = rediscover
         # the rediscover block shows no biography: picture, name, facts and covers
@@ -534,7 +538,7 @@ class SpotlightTile(Gtk.Overlay):
         kicker = _label(f"In the spotlight · {n_new} new".upper(), ("overline",), wrap=True)
         caption.append(kicker)
         caption.append(_label(artist.name, ("title-4",), wrap=True))
-        facts = " · ".join(b for b in (short_genres(artist.genre, 24), artist.years) if b)
+        facts = " · ".join(b for b in (artist.years, short_genres(artist.genre, 24)) if b)
         if facts:
             caption.append(_label(facts, ("caption",)))  # one line
         self.add_overlay(caption)
