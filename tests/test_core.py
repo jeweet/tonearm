@@ -233,6 +233,11 @@ class SyncTests(unittest.TestCase):
         self.assertIn(p["rediscover"][0].id, (7, 10, 11))           # someone else again
         shown = {p["hero"].id} | {a.id for a in p["stories"]}
         self.assertEqual(len(shown), 5)
+        # the "Just added" carousel: the newest first, then others not in the stories
+        heroes = p["heroes"]
+        self.assertEqual(heroes[0], p["hero"])
+        self.assertEqual(len(heroes), 5)
+        self.assertFalse({h.id for h in heroes[1:]} & {a.id for a in p["stories"]})
 
 
 class FuzzyTests(unittest.TestCase):

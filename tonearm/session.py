@@ -152,6 +152,11 @@ class Session(GObject.Object):
         self.ratings: dict = {"song": {}, "album": {}}
         self._rating_checks: set = set()
         self._rating_check_id = 0
+        # connected (however — a connect, or a player poll that got through): not
+        # offline any more, so the "offline" banner can't outlive the outage
+        self.connect("notify::connected",
+                     lambda *_: self.props.connected and self.props.offline
+                     and self.set_property("offline", False))
         self.connect("sync-finished", lambda *_: self.refresh_ratings())
         self.connect("sync-finished", lambda *_: self.fix_album_years())
         self._synced_once = False
@@ -1024,7 +1029,13 @@ class Session(GObject.Object):
                 return
             pid, data, vol, stamp = res
             if not self.props.connected:
+                # Kodi answered a player poll before the (re)connect did: connected —
+                # and finish connecting properly (live updates, favourites, ratings…)
                 self.props.connected = True
+                if self._reconnect_id:
+                    GLib.source_remove(self._reconnect_id)
+                    self._reconnect_id = 0
+                self._connect()
             st = PlayerState(volume=int(vol.get("volume", 100)), muted=bool(vol.get("muted")))
             size = None
             if pid is not None:

@@ -237,8 +237,9 @@ class CoverStory(CardArt):
                       orientation=Gtk.Orientation.VERTICAL if phone else Gtk.Orientation.HORIZONTAL)
         if phone:
             row.set_spacing(16)
-            for side in ("top", "bottom", "start", "end"):
+            for side in ("top", "start", "end"):
                 getattr(row, f"set_margin_{side}")(16)
+            row.set_margin_bottom(26)     # room for the carousel's dots
         cover = Cover(240 if phone else 280, css="hero-cover")
         cover.set_art(session, album.thumbnail, "large")
         _clickable(cover, lambda: window.show_album(album))
@@ -293,6 +294,62 @@ class CoverStory(CardArt):
         if info["description"]:
             self.review.set_label(info["description"])
             self.review.set_visible(True)
+
+
+class StoryCarousel(Gtk.Overlay):
+    """The "Just added" cover stories side by side: swipe (or drag) between them, dots
+    inside the card at its bottom edge (so it's no taller than the cards beside it);
+    it moves on to the next by itself every few seconds — not while the pointer
+    is on it, and the wait starts over after a swipe."""
+
+    INTERVAL = 8   # seconds per story
+
+    def __init__(self, page, albums: list, shape: str):
+        super().__init__(hexpand=True)
+        # (no scroll wheel: that has to scroll the page, not flip stories)
+        self.carousel = Adw.Carousel(allow_long_swipes=False, allow_scroll_wheel=False,
+                                     spacing=12, hexpand=True)
+        for a in albums:
+            self.carousel.append(CoverStory(page, a, shape))
+        self.set_child(self.carousel)
+        self._timer = 0
+        self._hover = False
+        if len(albums) > 1:
+            # in the card's bottom margin, over the artwork
+            dots = Adw.CarouselIndicatorDots(carousel=self.carousel, halign=Gtk.Align.CENTER,
+                                             valign=Gtk.Align.END, margin_bottom=4)
+            dots.add_css_class("story-dots")
+            self.add_overlay(dots)
+            motion = Gtk.EventControllerMotion()
+            motion.connect("enter", lambda *_: setattr(self, "_hover", True))
+            motion.connect("leave", lambda *_: setattr(self, "_hover", False))
+            self.add_controller(motion)
+            self.carousel.connect("page-changed", lambda *_: self._restart())
+            self.connect("map", lambda *_: self._restart())
+            self.connect("unmap", lambda *_: self._stop())
+
+    def _stop(self):
+        if self._timer:
+            GLib.source_remove(self._timer)
+            self._timer = 0
+
+    def _restart(self):
+        self._stop()
+        if self.get_mapped():
+            self._timer = GLib.timeout_add_seconds(self.INTERVAL, self._advance)
+
+    def _advance(self):
+        self._timer = 0
+        if not self.get_mapped():
+            return GLib.SOURCE_REMOVE
+        if self._hover:                         # reading it: look again later
+            self._restart()
+            return GLib.SOURCE_REMOVE
+        c = self.carousel
+        n = c.get_n_pages()
+        nxt = (int(round(c.get_position())) + 1) % n if n else 0
+        c.scroll_to(c.get_nth_page(nxt), True)  # page-changed restarts the wait
+        return GLib.SOURCE_REMOVE
 
 
 def texture_pixels(tex):
@@ -938,7 +995,9 @@ class RecentPage(Adw.NavigationPage):
         def place(widget, col, row, w=1, h=1):
             grid.attach(widget, col, row, w, h)
 
-        hero = CoverStory(self, picks["hero"], "phone" if phone else "big")
+        # "Just added": the newest albums' cover stories, one after the other
+        hero = StoryCarousel(self, picks.get("heroes") or [picks["hero"]],
+                             "phone" if phone else "big")
         if cols == 4:
             # hero 2×2, the new arrivals 2×2 beside it
             place(hero, 0, 0, 2, 2)
@@ -1006,7 +1065,8 @@ class RecentPage(Adw.NavigationPage):
         while (child := self.sections.get_first_child()) is not None:
             self.sections.remove(child)
         picks = self._picks
-        shown = {picks["hero"].id} | {a.id for a in picks["stories"]}
+        shown = ({a.id for a in picks.get("heroes") or [picks["hero"]]}
+                 | {a.id for a in picks["stories"]})
         rest = [a for a in picks["albums"] if a.id not in shown]
         groups: dict[str, list] = {}
         now = _dt.datetime.now()

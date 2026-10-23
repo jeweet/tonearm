@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 STORIES = 4         # story cards next to the cover story
+HEROES = 5          # cover stories in the "Just added" carousel (the first is the newest)
 SPOTLIGHTS = 3      # artists in the spotlight
 LIMIT = 120         # albums on the page
 
@@ -11,8 +12,8 @@ def pick(cache) -> dict:
     artists other than the cover story's, the spotlight skips artists already featured,
     and the rediscover pick is someone else again, from anywhere in the library."""
     albums = cache.recent_albums(LIMIT)
-    picks = {"albums": albums, "hero": None, "stories": [], "spots": [], "rediscover": None,
-             "featured_artists": set()}
+    picks = {"albums": albums, "hero": None, "heroes": [], "stories": [], "spots": [],
+             "rediscover": None, "featured_artists": set()}
     if not albums:
         return picks
     hero = albums[0]
@@ -32,6 +33,21 @@ def pick(cache) -> dict:
     stories += spare[:STORIES - len(stories)]   # a small library: fill up anyway
     for a in stories:
         featured |= set(cache.album_artist_ids(a.id))
+    # the carousel: the newest album, then the next newest that aren't story cards,
+    # one per artist where the library allows
+    in_stories = {a.id for a in stories}
+    heroes, names2, extra = [hero], {(hero.artist or "").lower()}, []
+    for a in albums[1:]:
+        if len(heroes) == HEROES:
+            break
+        if a.id in in_stories:
+            continue
+        if (a.artist or "").lower() in names2:
+            extra.append(a)
+            continue
+        heroes.append(a)
+        names2.add((a.artist or "").lower())
+    heroes += extra[:HEROES - len(heroes)]
 
     by_id = {a.id: a for a in albums}
     spots = []
@@ -44,7 +60,7 @@ def pick(cache) -> dict:
         if artist is not None and artist.fanart:
             spots.append((artist, [by_id[i] for i in ids if i in by_id]))
             featured.add(artistid)
-    picks.update(hero=hero, stories=stories, spots=spots, featured_artists=featured,
+    picks.update(hero=hero, heroes=heroes, stories=stories, spots=spots, featured_artists=featured,
                  rediscover=rediscover(cache, featured))
     return picks
 

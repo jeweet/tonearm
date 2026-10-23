@@ -27,6 +27,9 @@
           "type": "dir",
           "path": ".."
         }
+      ],
+      "post-install": [
+        "chmod 755 /app/bin/tonearm"
       ]
     }
   ]

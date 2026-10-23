@@ -218,7 +218,10 @@ class NowPlayingBar(Gtk.Revealer):
         self.artist.set_label(st.artist)
         self.play_btn.set_icon_name("tonearm-pause-symbolic" if st.playing
                                     else "tonearm-play-symbolic")
-        if track or self.cover._key != st.thumbnail:
+        # also while the picture is still missing: a load that failed (Kodi briefly
+        # unreachable) is tried again — the artwork cache answers at once for a while
+        if track or self.cover._key != st.thumbnail or \
+                self.cover.picture.get_paintable() is None:
             self.cover.set_art(self.session, st.thumbnail, "small")
         if track and st.albumid:   # file-based song Favorites need the album's file paths
             self.session.fetch_song_files(st.albumid, lambda _f: self._sync_star())
@@ -497,7 +500,10 @@ class PlayerDialog(Adw.Dialog):
             self.vol_scale.set_value(st.volume)
         self.mute_btn.set_icon_name("tonearm-volume-muted-symbolic" if st.muted or st.volume == 0
                                     else "tonearm-volume-symbolic")
-        if track or self.cover._key != st.thumbnail:
+        # also while the picture is still missing: a load that failed (Kodi briefly
+        # unreachable) is tried again — the artwork cache answers at once for a while
+        if track or self.cover._key != st.thumbnail or \
+                self.cover.picture.get_paintable() is None:
             self.cover.set_art(self.session, st.thumbnail, "large")
         if track and self.stack.get_visible_child_name() == "queue":
             self._load_queue()

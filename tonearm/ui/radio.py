@@ -1,21 +1,59 @@
 """"What should I play?" — one pick of decade and genre starts an endless radio mix."""
 from __future__ import annotations
 
-from gi.repository import Gtk
+from gi.repository import Adw, Gtk
 
 from ..util import run_async
 
 
-def radio_button(window) -> Gtk.MenuButton:
-    pop = RadioPopover(window)
-    btn = Gtk.MenuButton(icon_name="tonearm-radio-symbolic", popover=pop,
-                         tooltip_text="What should I play?")
+PHONE = 600      # narrower windows get the radio as a bottom sheet, not a popover
+
+
+def radio_button(window) -> Gtk.Button:
+    """The radio button beside the search bar. On a phone it opens a bottom sheet (a
+    dialog): a popover from inside the header's squeezed title area didn't open there."""
+    btn = Gtk.Button(icon_name="tonearm-radio-symbolic", tooltip_text="What should I play?")
+    btn.add_css_class("radio-button")
+    state = {"pop": None}
+
+    def clicked(_b):
+        if window.get_width() < PHONE:
+            open_radio_dialog(window)
+            return
+        if state["pop"] is None:
+            panel = RadioPanel(window)
+            pop = Gtk.Popover(child=panel)
+            pop.set_parent(btn)
+            panel.close = pop.popdown
+            pop.connect("show", lambda *_: panel.opened())
+            btn.connect("destroy", lambda *_: pop.unparent())
+            state["pop"] = pop
+        state["pop"].popup()
+
+    btn.connect("clicked", clicked)
     return btn
 
 
-class RadioPopover(Gtk.Popover):
+def open_radio_dialog(window):
+    panel = RadioPanel(window)
+    dlg = Adw.Dialog(title="What should I play?", content_width=380)
+    tv = Adw.ToolbarView()
+    tv.add_top_bar(Adw.HeaderBar())
+    tv.set_content(panel)
+    panel.title.set_visible(False)          # the dialog's header says it
+    dlg.set_child(tv)
+    panel.close = dlg.close
+    panel.opened()
+    dlg.present(window)
+
+
+class RadioPanel(Gtk.Box):
+    """The radio's choices; shown in a popover (desktop) or a bottom sheet (phone).
+    ``close`` is set by whoever shows it."""
+
     def __init__(self, window):
-        super().__init__()
+        super().__init__(orientation=Gtk.Orientation.VERTICAL)
+        self.close = lambda: None
         self.window = window
         self.session = window.session
         self.decades: list = [None]
@@ -26,6 +64,7 @@ class RadioPopover(Gtk.Popover):
         title = Gtk.Label(label="What should I play?", xalign=0)
         title.add_css_class("title-4")
         box.append(title)
+        self.title = title
         hint = Gtk.Label(label="Pick a decade and a genre for an endless random mix.",
                          xalign=0, wrap=True, max_width_chars=30)
         hint.add_css_class("dim-label")
@@ -96,12 +135,15 @@ class RadioPopover(Gtk.Popover):
         self.now.append(stop)
         box.append(self.now)
 
-        self.set_child(box)
+        self.append(box)
         self._box = box
         self._radio_pick = (None, None)     # the decade / genre while Party Mode is on
-        self.connect("show", lambda *_: self._populate())
         self.decade_dd.connect("notify::selected", lambda *_: self._update_count())
         self.genre_dd.connect("notify::selected", lambda *_: self._update_count())
+
+    def opened(self):
+        """Shown (again): fresh choices from the library."""
+        self._populate()
 
     @staticmethod
     def _dropdown(searchable=False) -> Gtk.DropDown:
@@ -214,7 +256,7 @@ class RadioPopover(Gtk.Popover):
 
     def _start(self, *_):
         decade, genre = self._choice()
-        self.popdown()
+        self.close()
         if self._party:
             self.session.start_partymode()
         else:
@@ -226,7 +268,7 @@ class RadioPopover(Gtk.Popover):
             d, g = pick
             self.decade_dd.set_selected(self.decades.index(d) if d in self.decades else 0)
             self.genre_dd.set_selected(self.genres.index(g) if g in self.genres else 0)
-            self.popdown()
+            self.close()
             self.session.start_radio(d, g)
 
         self.session.pick_surprise(done)
