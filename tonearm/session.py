@@ -147,6 +147,7 @@ class Session(GObject.Object):
         self._reconnect_id = 0
         self._sync_retry_id = 0
         self._wake_until = 0.0        # after a Wake-on-LAN: retry often until then
+        self._timeouts = 0            # connect attempts in a row that got no answer
         self.power_options: set = set()   # what Kodi's system allows (POWER keys)
         # Kodi's user ratings (1–10) of songs and albums: {kind: {id: rating}}
         self.ratings: dict = {"song": {}, "album": {}}
@@ -277,6 +278,7 @@ class Session(GObject.Object):
             self._poll_id = 0
         self.props.connected = False
         self.props.offline = False
+        self._timeouts = 0
         self.props.live = False
         self.power_options = set()
         if self.cache:
@@ -294,6 +296,7 @@ class Session(GObject.Object):
                 self.cache.set_meta("kodi_info", info)  # shown in Preferences when offline
             self.props.connected = True
             self.props.offline = False
+            self._timeouts = 0
             self._wake_until = 0.0
             self._offline_notified = False
             self._learn_mac(gen, client)
@@ -318,9 +321,13 @@ class Session(GObject.Object):
             if gen != self._generation:
                 return
             if isinstance(exc, KodiTimeout):
-                # It's there but busy (e.g. scanning); try again soon, don't call it offline.
-                self._schedule_reconnect(5)
-                return
+                # Busy (e.g. scanning) — or switched off: a machine that's off doesn't
+                # refuse, it just never answers. Once is "busy"; again, and it's offline
+                # (else the offline bar and Wake Up never showed for a sleeping Kodi).
+                self._timeouts += 1
+                if self._timeouts < 2:
+                    self._schedule_reconnect(5)
+                    return
             self.props.connected = False
             self.props.offline = True
             if not getattr(self, "_offline_notified", False):
