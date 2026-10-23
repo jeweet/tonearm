@@ -11,8 +11,9 @@ from ..util import fmt_time, fmt_total, plural, run_async
 from ..years import clean_year
 from .albumview import AlbumView, view_options_button
 from .widgets import (FAVOURITES, AlbumObj, Cover, FavToggle, Spinner, ask_name,
-                      attach_context_menu, follow, pill, plain_row, scrolled, set_menu,
-                      song_menu, stars_text, status_page)
+                      attach_context_menu, follow, make_draggable, my_playlist_menu, pill,
+                      plain_row, playlist_song_menu, scrolled, set_menu, song_menu,
+                      stars_text, status_page)
 
 
 # ---------------------------------------------------------------------------
@@ -454,6 +455,13 @@ def kodi_playlist_menu(pl: dict) -> Gio.Menu:
         it.set_action_and_target_value("win.partymode",
                                        GLib.Variant("(ss)", (pl["file"], pl["label"])))
         m.append_item(it)
+    # Kodi's API can't change its playlists: a copy among yours can be edited
+    edit = Gio.Menu()
+    it = Gio.MenuItem.new("Copy to My Playlists", None)
+    it.set_action_and_target_value("win.copy-kodi-playlist",
+                                   GLib.Variant("(ss)", (pl["file"], pl["label"])))
+    edit.append_item(it)
+    m.append_section(None, edit)
     return m
 
 
@@ -528,9 +536,12 @@ class PlaylistsPage(Adw.NavigationPage):
         self.stack.add_named(scrolled(Adw.Clamp(maximum_size=760, child=box)), "list")
         self.stack.add_named(empty, "empty")
         self._kodi_count = None          # not loaded yet
+        self._shown_kodi = None          # the Kodi playlists on screen (to skip rebuilds)
         tv.set_content(self.stack)
         self.set_child(tv)
-        self.connect("showing", lambda *_: self.dirty and self.refresh())
+        # Kodi says nothing when a playlist is added or changed on it: ask again each
+        # time the page comes into view (the list is only rebuilt when it changed)
+        self.connect("map", lambda *_: self.refresh())
         follow(self.session, "playlists-changed", self, lambda page: page._fill_mine())
         self._stars: list = []     # ★ of the Kodi playlists (they can be Kodi Favorites)
         follow(self.session, "favourites-changed", self,
@@ -559,19 +570,25 @@ class PlaylistsPage(Adw.NavigationPage):
             row.add_suffix(play)
             row.add_suffix(Gtk.Image(icon_name="tonearm-go-next-symbolic"))
             row.mine = pl["id"]
+            # right-click / long-press: play, rename, sort, duplicate, delete
+            attach_context_menu(row, lambda p=pl["id"]: my_playlist_menu(p))
             self.mine.append(row)
 
     def refresh(self):
         self.dirty = False
-        self._kodi_count = None
         self._fill_mine()
-        self.spinner.start()
-        self.spinner.set_visible(True)
+        first = self._shown_kodi is None
+        if first:
+            self.spinner.start()
+            self.spinner.set_visible(True)
 
         def done(pls, from_cache):
             self.spinner.stop()
             self.spinner.set_visible(False)
             self.banner.set_revealed(from_cache and bool(pls))
+            if pls == self._shown_kodi:
+                return
+            self._shown_kodi = pls
             while (row := self.list.get_first_child()) is not None:
                 self.list.remove(row)
             self._stars = []
@@ -617,18 +634,10 @@ class MyPlaylistPage(Adw.NavigationPage):
 
         tv = Adw.ToolbarView()
         header = window.search_header()
-        menu = Gio.Menu()
-        menu.append("Rename…", "page.rename")
-        menu.append("Delete Playlist", "page.delete")
-        header.pack_end(Gtk.MenuButton(icon_name="tonearm-more-symbolic", menu_model=menu,
-                                       tooltip_text="More"))
+        # rename, sort, duplicate, delete
+        header.pack_end(Gtk.MenuButton(icon_name="tonearm-more-symbolic", tooltip_text="More",
+                                       menu_model=my_playlist_menu(pid, with_play=False)))
         tv.add_top_bar(header)
-        group = Gio.SimpleActionGroup()
-        for name, cb in (("rename", self._rename), ("delete", self._delete)):
-            act = Gio.SimpleAction.new(name, None)
-            act.connect("activate", lambda *_a, cb=cb: cb())
-            group.add_action(act)
-        self.insert_action_group("page", group)
 
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=18,
                       margin_bottom=24, margin_start=12, margin_end=12)
@@ -640,7 +649,8 @@ class MyPlaylistPage(Adw.NavigationPage):
         self.tracks.connect("row-activated", lambda lb, row: self.session.play_my_playlist(
             pid, row.position))
         self.empty = status_page("tonearm-playlist-symbolic", "Empty Playlist",
-                                 "Add songs and albums with “Add to Playlist” in their menus.")
+                                 "Add songs, albums and artists with “Add to Playlist” in "
+                                 "their menus.")
         for w in (head, self.tracks, self.empty):
             box.append(w)
         tv.set_content(scrolled(Adw.Clamp(maximum_size=760, child=box)))
@@ -669,25 +679,32 @@ class MyPlaylistPage(Adw.NavigationPage):
             artist = song.artist if song else entry.get("artist", "")
             sub = " · ".join(x for x in (artist, album.title if album else "") if x)
             row = plain_row(title=title, subtitle=sub, activatable=song is not None)
+            row.position = pos
+            # drag the grip to reorder (as in the player's queue)
+            make_draggable(row, lambda a, b: self.session.move_in_playlist(self.pid, a, b))
             num = Gtk.Label(label=str(pos + 1), width_chars=3, xalign=1)
             num.add_css_class("dim-label")
             num.add_css_class("numeric")
             row.add_prefix(num)
+            n_songs = len(pl["songs"])
+            sid, aid = (song.id, song.albumid) if song else (None, None)
+            menu = (lambda p=pos, sid=sid, aid=aid, n=n_songs:
+                    playlist_song_menu(self.pid, p, n, sid, aid))
             if song is not None:
                 total += song.duration
                 dur = Gtk.Label(label=fmt_time(song.duration))
                 dur.add_css_class("dim-label")
                 dur.add_css_class("numeric")
                 row.add_suffix(dur)
-                attach_context_menu(row, lambda sid=song.id, aid=song.albumid: song_menu(sid, aid))
             else:
                 row.set_subtitle("No longer in Kodi's library")
-            rm = Gtk.Button(icon_name="tonearm-remove-symbolic", valign=Gtk.Align.CENTER,
-                            tooltip_text="Remove from Playlist")
-            rm.add_css_class("flat")
-            rm.connect("clicked", lambda b, i=pos: self.session.remove_from_playlist(self.pid, i))
-            row.add_suffix(rm)
-            row.position = pos
+            # ⋯: move to top / bottom, remove — and the song's own menu
+            more = Gtk.MenuButton(icon_name="tonearm-more-symbolic", valign=Gtk.Align.CENTER,
+                                  tooltip_text="More")
+            more.add_css_class("flat")
+            more.set_create_popup_func(lambda b, m=menu: set_menu(b, m()))
+            row.add_suffix(more)
+            attach_context_menu(row, menu)
             self.tracks.append(row)
         n = len(pl["songs"])
         self.meta.set_label(plural(n, 'song')
@@ -696,26 +713,6 @@ class MyPlaylistPage(Adw.NavigationPage):
         self.empty.set_visible(n == 0)
         self.play.set_sensitive(n > 0)
         self.shuffle.set_sensitive(n > 0)
-
-    def _rename(self):
-        pl = self.session.playlists.get(self.pid)
-        if pl is not None:
-            ask_name(self.window, "Rename Playlist", pl["name"], "Rename",
-                     lambda name: self.session.rename_playlist(self.pid, name))
-
-    def _delete(self):
-        pl = self.session.playlists.get(self.pid)
-        if pl is None:
-            return
-        dlg = Adw.AlertDialog(heading=f"Delete “{pl['name']}”?",
-                              body="The playlist goes; the music stays in your library.")
-        dlg.add_response("cancel", "Cancel")
-        dlg.add_response("delete", "Delete")
-        dlg.set_response_appearance("delete", Adw.ResponseAppearance.DESTRUCTIVE)
-        dlg.set_close_response("cancel")
-        dlg.connect("response", lambda d, r: r == "delete" and
-                    self.session.delete_playlist(self.pid))
-        dlg.present(self.window)
 
 
 class PlaylistPage(Adw.NavigationPage):
@@ -729,7 +726,11 @@ class PlaylistPage(Adw.NavigationPage):
         self.dirty = False
 
         tv = Adw.ToolbarView()
-        tv.add_top_bar(window.search_header())
+        header = window.search_header()
+        # ⋯: Play, Shuffle, Party Mode — and "Copy to My Playlists" to edit it
+        header.pack_end(Gtk.MenuButton(icon_name="tonearm-more-symbolic", tooltip_text="More",
+                                       menu_model=kodi_playlist_menu(pl)))
+        tv.add_top_bar(header)
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=18,
                       margin_bottom=24, margin_start=12, margin_end=12)
         # Kodi's playlists can be Kodi Favorites (ours can't: Kodi doesn't know them)
@@ -755,17 +756,32 @@ class PlaylistPage(Adw.NavigationPage):
         self._sync_fav()
         self.tracks = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE)
         self.tracks.add_css_class("boxed-list")
-        self.tracks.connect("row-activated",
-                            lambda lb, row: self.session.play_playlist(pl["file"], row.position))
+        # a tapped song plays the list as shown, from that song (adding the playlist
+        # file itself let Kodi expand it in its own order: often the first song played)
+        self._items: list = []
+        self.tracks.connect("row-activated", lambda lb, row: self._play_from(row.position))
         self.spinner = Spinner(spinning=True, size=32, halign=Gtk.Align.CENTER)
         for w in (head, self.spinner, self.tracks):
             box.append(w)
         tv.set_content(scrolled(Adw.Clamp(maximum_size=760, child=box)))
         self.set_child(tv)
-        self.refresh()
+        # changed on Kodi meanwhile? look again whenever the page comes into view
+        self.connect("map", lambda *_: self.refresh())
 
     def _sync_fav(self):
         self.fav.show_state(self.pl["file"] in self.session.fav_playlist_paths())
+
+    def _play_from(self, position: int):
+        items = []
+        for it in self._items:
+            if it.get("type") == "song" and it.get("id"):
+                items.append({"songid": int(it["id"])})
+            elif it.get("file"):
+                items.append({"file": it["file"]})
+        if len(items) == len(self._items):
+            self.session.play_list(items, position)
+        else:          # something we can't name: let Kodi expand the playlist
+            self.session.play_playlist(self.pl["file"], position)
 
     def refresh(self):
         self.dirty = False
@@ -775,7 +791,12 @@ class PlaylistPage(Adw.NavigationPage):
             if items is None:
                 self.meta.set_label("Kodi is offline — tracks can't be listed right now")
                 return
+            if items == self._items and self.tracks.get_first_child() is not None:
+                return                          # unchanged: keep the list as it is
+            while (row := self.tracks.get_first_child()) is not None:
+                self.tracks.remove(row)
             total = 0
+            self._items = items
             for pos, it in enumerate(items):
                 artist = ", ".join(it.get("artist") or []) if isinstance(it.get("artist"), list) \
                     else (it.get("artist") or "")

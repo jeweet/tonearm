@@ -132,3 +132,14 @@ button.circular.lidarr-round { min-width: 38px; min-height: 38px; padding: 0; }
   font-size: 0.7em; font-weight: 700; padding: 0 7px; border-radius: 99px;
   color: @accent_fg_color; background-color: @accent_bg_color;
 }
+
+/* glass player bar: translucent over the page, which player.GlassBin draws blurred
+   beneath, on an opaque base. Here (above a user gtk.css) and for :backdrop too — an
+   unfocused window's theme rules left the bar completely see-through */
+.glass, .glass:backdrop { background-color: @headerbar_bg_color; }
+.now-playing-bar, .now-playing-bar:backdrop {
+  background-color: alpha(@headerbar_bg_color, 0.78);
+}
+
+/* list views on a phone: the rows use the width — just room for the A–Z rail */
+columnview.table-view.narrow { padding: 0 26px 0 2px; }

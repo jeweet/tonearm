@@ -32,9 +32,7 @@ row.now-playing { color: @accent_color; }
 row.now-playing .title { font-weight: 700; }
 
 /* Now-playing bar */
-/* glass: translucent over the page, which player.GlassBin draws blurred beneath */
-.now-playing-bar { background-color: alpha(@headerbar_bg_color, 0.78); }
-.glass { background-color: @headerbar_bg_color; }
+/* glass player bar: see override.css */
 
 /* Player controls and the player's seek line: in override.css (above user themes) */
 

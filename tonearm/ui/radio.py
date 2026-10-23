@@ -1,7 +1,7 @@
 """"What should I play?" — one pick of decade and genre starts an endless radio mix."""
 from __future__ import annotations
 
-from gi.repository import Adw, Gtk
+from gi.repository import Adw, Gtk, Pango
 
 from ..util import run_async
 
@@ -35,7 +35,7 @@ def radio_button(window) -> Gtk.Button:
 
 
 def open_radio_dialog(window):
-    panel = RadioPanel(window)
+    panel = RadioPanel(window, compact=True)
     dlg = Adw.Dialog(title="What should I play?", content_width=380)
     tv = Adw.ToolbarView()
     tv.add_top_bar(Adw.HeaderBar())
@@ -51,7 +51,9 @@ class RadioPanel(Gtk.Box):
     """The radio's choices; shown in a popover (desktop) or a bottom sheet (phone).
     ``close`` is set by whoever shows it."""
 
-    def __init__(self, window):
+    def __init__(self, window, compact: bool = False):
+        """``compact``: a phone's bottom sheet — nothing may need more than its width
+        (the two pill buttons side by side did: one above the other here)."""
         super().__init__(orientation=Gtk.Orientation.VERTICAL)
         self.close = lambda: None
         self.window = window
@@ -60,7 +62,9 @@ class RadioPanel(Gtk.Box):
         self.genres: list = [None]
 
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10, margin_top=12,
-                      margin_bottom=12, margin_start=12, margin_end=12, width_request=260)
+                      margin_bottom=12, margin_start=12 if not compact else 18,
+                      margin_end=12 if not compact else 18,
+                      width_request=260 if not compact else -1)
         title = Gtk.Label(label="What should I play?", xalign=0)
         title.add_css_class("title-4")
         box.append(title)
@@ -121,8 +125,13 @@ class RadioPanel(Gtk.Box):
         surprise.connect("clicked", self._surprise)
         self.surprise_btn = surprise
         buttons = Gtk.Box(spacing=8, homogeneous=True, margin_top=4)
-        buttons.append(surprise)
-        buttons.append(start)
+        if compact:
+            buttons.set_orientation(Gtk.Orientation.VERTICAL)
+            buttons.append(start)
+            buttons.append(surprise)
+        else:
+            buttons.append(surprise)
+            buttons.append(start)
         box.append(buttons)
 
         self.now = Gtk.Box(spacing=8, visible=False)
@@ -146,8 +155,28 @@ class RadioPanel(Gtk.Box):
         self._populate()
 
     @staticmethod
-    def _dropdown(searchable=False) -> Gtk.DropDown:
+    def _label_factory(ellipsize: bool) -> Gtk.SignalListItemFactory:
+        f = Gtk.SignalListItemFactory()
+
+        def setup(_f, li):
+            lbl = Gtk.Label(xalign=0)
+            if ellipsize:
+                lbl.set_ellipsize(Pango.EllipsizeMode.END)
+                lbl.set_max_width_chars(1)
+                lbl.set_hexpand(True)
+            li.set_child(lbl)
+
+        f.connect("setup", setup)
+        f.connect("bind", lambda _f, li: li.get_child().set_label(li.get_item().get_string()))
+        return f
+
+    @classmethod
+    def _dropdown(cls, searchable=False) -> Gtk.DropDown:
         dd = Gtk.DropDown.new_from_strings(["Any"])
+        # the chosen value shortens with "…" (a long genre name made the panel wider
+        # than a phone); the list itself shows names in full
+        dd.set_factory(cls._label_factory(True))
+        dd.set_list_factory(cls._label_factory(False))
         if searchable:
             dd.set_expression(Gtk.PropertyExpression.new(Gtk.StringObject, None, "string"))
             dd.set_enable_search(True)

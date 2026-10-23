@@ -9,6 +9,7 @@ from ..util import fmt_time, fmt_total, plural, run_async
 from .albumview import prefs as album_prefs, register_other, view_menu, view_options_button
 from .columns import Column, ColumnRow, ColumnSet, column_box
 from .widgets import (LIST_WIDTH, TILE_SIZES, AlbumTile, Cover, RatingStars, Spinner, album_menu,
+                      artist_menu,
                       attach_context_menu, button_row, detail_scaffold, follow, pill, plain_row,
                       set_menu, song_menu)
 
@@ -287,6 +288,10 @@ class ArtistPage(Adw.NavigationPage):
         self.view_btn.set_menu_model(self._view_menu())
         self.view_btn.set_dropdown_tooltip("View and Sort")
         header.pack_end(self.view_btn)
+        # ⋯: Play Next, Add to Queue, Favorites, Add to Playlist
+        more = Gtk.MenuButton(icon_name="tonearm-more-symbolic", tooltip_text="More")
+        more.set_create_popup_func(lambda b: set_menu(b, artist_menu(artistid)))
+        header.pack_end(more)
         register_other(self)
         self.album_list = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE)
         self.album_list.add_css_class("boxed-list")

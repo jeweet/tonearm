@@ -7,7 +7,8 @@ from ..util import fmt_total, plural, run_async
 from .albumview import AlbumView, view_options_button
 from ..listlayout import Spec
 from .listview import TableView
-from .widgets import AlbumObj, ArtistObj, JumpView, initial, load_avatar, scrolled, status_page
+from .widgets import (AlbumObj, ArtistObj, JumpView, artist_menu, attach_context_menu, initial,
+                      load_avatar, scrolled, status_page)
 
 class AlbumGridPage(Adw.NavigationPage):
     """Cover grid. ``mode`` is "albums" (all, sortable) or "recent"."""
@@ -143,6 +144,7 @@ class ArtistTile(Gtk.Box):
             self.append(w)
 
     def bind(self, session, artist):
+        self.artistid = artist.id
         self.name.set_label(artist.name)
         n = artist.album_count
         self.meta.set_label(plural(n, 'album'))
@@ -185,7 +187,8 @@ class ArtistListPage(Adw.NavigationPage):
             meta_order=["albums", "years", "genre"],   # "12 albums · 1990–2020 · Rock"
             prefix=(ArtistAvatar, lambda w, o: w.bind(self.session, o.artist)),
             on_sort=self._sort_clicked,
-            on_activate=lambda o: window.show_artist(o.artist.id))
+            on_activate=lambda o: window.show_artist(o.artist.id),
+            menu=lambda o: artist_menu(o.artist.id))   # right-click / long-press
         self.list = self.table.view
         self.list.add_css_class("artist-list")
         list_sw = scrolled(self.list)
@@ -194,7 +197,13 @@ class ArtistListPage(Adw.NavigationPage):
 
         # grid
         gf = Gtk.SignalListItemFactory()
-        gf.connect("setup", lambda f, li: li.set_child(ArtistTile()))
+        def setup_tile(_f, li):
+            tile = ArtistTile()
+            attach_context_menu(tile, lambda t=tile: artist_menu(t.artistid)
+                                if getattr(t, "artistid", None) else None)
+            li.set_child(tile)
+
+        gf.connect("setup", setup_tile)
         gf.connect("bind", lambda f, li: li.get_child().bind(self.session, li.get_item().artist))
         self.grid = Gtk.GridView(model=Gtk.NoSelection(model=self.store), factory=gf,
                                  single_click_activate=True, min_columns=2, max_columns=12)

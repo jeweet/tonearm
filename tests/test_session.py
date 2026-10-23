@@ -194,6 +194,29 @@ class SessionTests(unittest.TestCase):
         self.assertEqual(s.cache.album(4).year, 0)       # shown without a year
         self.assertTrue(self.pump(lambda: s.cache.year_fix_ids() == []))
 
+    def test_playlist_editing(self):
+        s = self.session
+        self.assertTrue(self.pump(lambda: any(e[0] == "sync-finished" for e in self.events)))
+        # the queue as a playlist
+        s.play_album(2)
+        self.assertTrue(self.pump(lambda: len(self.lib.queue) == 6))
+        s.save_queue_as_playlist("Evening")
+        self.assertTrue(self.pump(lambda: any(p["name"] == "Evening" for p in s.my_playlists())))
+        pl = next(p for p in s.my_playlists() if p["name"] == "Evening")
+        self.assertEqual(len(pl["songs"]), 6)
+        # sort by title, then move the last one to the top
+        s.sort_playlist(pl["id"], "title")
+        titles = [s.cache.song(x["id"]).title for x in s.playlists.get(pl["id"])["songs"]]
+        self.assertEqual(titles, sorted(titles, key=str.lower))
+        last = s.playlists.get(pl["id"])["songs"][-1]["id"]
+        s.move_in_playlist(pl["id"], 5, 0)
+        self.assertEqual(s.playlists.get(pl["id"])["songs"][0]["id"], last)
+        # a copy of a Kodi playlist (the mock's m3u holds library songs)
+        s.copy_kodi_playlist("special://profile/playlists/music/Road trip.m3u", "Road trip")
+        self.assertTrue(self.pump(lambda: any(p["name"] == "Road trip" for p in s.my_playlists())))
+        dup = s.duplicate_playlist(pl["id"])
+        self.assertEqual(dup["name"], "Evening (copy)")
+
     def test_kodi_favourites(self):
         s = self.session
         self.assertTrue(self.pump(lambda: any(e[0] == "sync-finished" for e in self.events)))

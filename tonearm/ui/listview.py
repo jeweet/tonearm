@@ -16,6 +16,8 @@ from gi.repository import GLib, Gtk, Pango
 from ..listlayout import Spec, choose
 
 SIDE = 64   # list width − the width columns share (18 + 36 px padding, scrollbar)
+NARROW = 600          # narrower (a phone): less side padding (style.css .narrow)
+SIDE_NARROW = 36      # 4 + 26 px padding (the A–Z rail), a little slack
 
 
 def unparent_children(widget: Gtk.Widget):
@@ -281,7 +283,10 @@ class TableView:
 
     def _on_width(self, width: int, force: bool = False):
         self._width = width
-        names = [n for n in choose(width - SIDE, self.specs) if n not in self._hidden]
+        narrow = 0 < width < NARROW
+        (self.view.add_css_class if narrow else self.view.remove_css_class)("narrow")
+        side = SIDE_NARROW if narrow else SIDE
+        names = [n for n in choose(width - side, self.specs) if n not in self._hidden]
         if names == self.names and not force:
             return
         self.names = names

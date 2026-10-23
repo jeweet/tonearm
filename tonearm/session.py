@@ -936,18 +936,37 @@ class Session(GObject.Object):
             out.append(cur)
         return out
 
-    def play_files(self, files: list[str], position: int = 0):
-        """These files in this order (a folder's songs), from ``position``."""
-        if not files:
+    @classmethod
+    def item_batches(cls, items: list[dict]) -> list[list[dict]]:
+        """Playlist items ({"songid"} / {"file"}) split into Playlist.Add-sized groups."""
+        out, cur, size = [], [], 0
+        for it in items:
+            n = len(json.dumps(it)) + 2
+            if cur and size + n > cls.MAX_ADD_BYTES:
+                out.append(cur)
+                cur, size = [], 0
+            cur.append(it)
+            size += n
+        if cur:
+            out.append(cur)
+        return out
+
+    def play_list(self, items: list[dict], position: int = 0):
+        """Exactly these items, in this order, from ``position`` — what a page shows is
+        what plays (a Kodi playlist added as a file may come out in another order)."""
+        if not items:
             return
         self._radio = None
-        self._expect_busy(30 + len(files) // 10)
-        adds = [("Playlist.Add", {"playlistid": AUDIO_PLAYLIST,
-                                  "item": [{"file": f} for f in batch]}, 60)
-                for batch in self.file_batches(files)]
+        self._expect_busy(30 + len(items) // 10)
+        adds = [("Playlist.Add", {"playlistid": AUDIO_PLAYLIST, "item": batch}, 60)
+                for batch in self.item_batches(items)]
         self._seq([("Playlist.Clear", {"playlistid": AUDIO_PLAYLIST}), *adds,
                    ("Player.Open", {"item": {"playlistid": AUDIO_PLAYLIST,
                                              "position": position}})])
+
+    def play_files(self, files: list[str], position: int = 0):
+        """These files in this order (a folder's songs), from ``position``."""
+        self.play_list([{"file": f} for f in files], position)
 
     def clean_library(self):
         self._cmd("AudioLibrary.Clean", {"showdialogs": False}, toast="Library clean started on Kodi")
@@ -1838,11 +1857,20 @@ class Session(GObject.Object):
         client = self.client
 
         def work():
-            res = client.call("Files.GetDirectory", {
-                "directory": "special://musicplaylists/", "media": "music",
-                "sort": {"method": "label", "ignorearticle": True}})
+            # Kodi's music playlists, and its "mixed" ones (they show in Music too)
+            files = []
+            for folder in ("special://musicplaylists/", "special://profile/playlists/mixed/"):
+                try:
+                    res = client.call("Files.GetDirectory", {
+                        "directory": folder, "media": "music",
+                        "sort": {"method": "label", "ignorearticle": True}})
+                except KodiError:
+                    if folder.startswith("special://musicplaylists"):
+                        raise
+                    continue                      # no mixed playlists folder: fine
+                files += (res or {}).get("files") or []
             out = []
-            for f in (res or {}).get("files") or []:
+            for f in sorted(files, key=lambda f: (f.get("label") or "").lower()):
                 path = f.get("file") or ""
                 low = path.lower().rstrip("/")
                 if low.endswith((".xsp", ".m3u", ".m3u8", ".pls")):
@@ -2082,6 +2110,96 @@ class Session(GObject.Object):
         if self.playlists is not None:
             self.playlists.remove(pid, index)
             self.emit("playlists-changed")
+
+    def move_in_playlist(self, pid: str, src: int, dst: int):
+        if self.playlists is not None:
+            self.playlists.move(pid, src, dst)
+            self.emit("playlists-changed")
+
+    PLAYLIST_SORTS = [("artist", "Artist"), ("album", "Album"), ("title", "Title"),
+                      ("recent", "Date Added")]
+
+    def sort_playlist(self, pid: str, key: str):
+        """Reorder a playlist once by artist / album / title / date added (newest first)."""
+        store, cache = self.playlists, self.cache
+        pl = store.get(pid) if store is not None else None
+        if pl is None or cache is None:
+            return
+        info = cache.song_sort_info([s["id"] for s in pl["songs"]])
+
+        def k(song):
+            artist, album, disc, track, title, _added = info.get(song["id"]) or (
+                song.get("artist", ""), "", 0, 0, song.get("title", ""), "")
+            if key == "album":
+                return (album.lower(), disc, track, title.lower())
+            if key == "title":
+                return (title.lower(), artist.lower())
+            return (artist.lower(), album.lower(), disc, track, title.lower())
+
+        if key == "recent":
+            order = sorted(pl["songs"], key=lambda s: (info.get(s["id"]) or ("",) * 6)[5],
+                           reverse=True)
+        else:
+            order = sorted(pl["songs"], key=k)
+        store.reorder(pid, [s["id"] for s in order])
+        self.emit("playlists-changed")
+
+    def duplicate_playlist(self, pid: str) -> dict | None:
+        store = self.playlists
+        pl = store.get(pid) if store is not None else None
+        if pl is None:
+            return None
+        copy = store.duplicate(pid, store.unique_name(f"{pl['name']} (copy)"))
+        self.emit("playlists-changed")
+        self.emit("toast", f"Made “{copy['name']}”")
+        return copy
+
+    def _new_playlist_from(self, name: str, songs: list[dict], skipped: int, what: str):
+        store = self.playlists
+        if store is None:
+            return
+        if not songs:
+            self._toast_problem(f"Nothing from {what} is in Kodi's library")
+            return
+        pl = store.create_with(store.unique_name(name), songs)
+        self.emit("playlists-changed")
+        extra = f" ({skipped} not in the library left out)" if skipped else ""
+        self.emit("toast", f"Saved {len(songs)} songs as “{pl['name']}”{extra}")
+
+    def save_queue_as_playlist(self, name: str):
+        """The play queue (its library songs) as a new playlist of yours."""
+        client = self.client
+        if client is None or not self.props.connected:
+            self._toast_problem("Kodi is offline")
+            return
+
+        def work():
+            res = client.call("Playlist.GetItems", {
+                "playlistid": AUDIO_PLAYLIST, "properties": ["title", "artist"]}) or {}
+            return res.get("items") or []
+
+        def done(items):
+            songs = [{"id": int(i["id"]), "title": i.get("title") or i.get("label", ""),
+                      "artist": ", ".join(i.get("artist") or [])}
+                     for i in items if i.get("type") == "song" and i.get("id")]
+            self._new_playlist_from(name, songs, len(items) - len(songs), "the queue")
+
+        run_async(work, done=done, error=lambda e: self._toast_problem(f"Kodi: {e}"))
+
+    def copy_kodi_playlist(self, path: str, label: str):
+        """A Kodi playlist as one of yours — Kodi's API can't change its own playlists,
+        so this copy is the one to edit (a smart playlist: its songs of today)."""
+        def got(items):
+            if items is None:
+                self._toast_problem("Kodi is offline")
+                return
+            songs = [{"id": int(i["id"]), "title": i.get("title") or i.get("label", ""),
+                      "artist": ", ".join(i.get("artist") or [])
+                      if isinstance(i.get("artist"), list) else (i.get("artist") or "")}
+                     for i in items if i.get("type") == "song" and i.get("id")]
+            self._new_playlist_from(label, songs, len(items) - len(songs), "this playlist")
+
+        self.fetch_playlist_items(path, got)
 
     def add_to_playlist(self, pid: str, kind: str, item_id: int):
         """Add a song, an album's songs or an artist's songs to a playlist."""

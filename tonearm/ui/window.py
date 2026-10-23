@@ -690,6 +690,25 @@ class Window(Adw.ApplicationWindow):
         add("playlist-new", lambda _: ask_name(self, "New Playlist", "", "Create",
                                                 lambda n: s.create_playlist(n)))
         s.connect("playlists-changed", lambda *_: self._on_playlists_changed())
+        self._on_playlists_changed()     # the session may have loaded them already
+        # your playlists (by id) — from the Playlists page's long-press menu and a
+        # playlist's own page
+        add("myplaylist-play", lambda pid: s.play_my_playlist(pid), "s")
+        add("myplaylist-shuffle", lambda pid: s.play_my_playlist(pid, shuffle=True), "s")
+        add("myplaylist-rename", self.rename_playlist, "s")
+        add("myplaylist-duplicate", lambda pid: s.duplicate_playlist(pid), "s")
+        add("myplaylist-delete", self.delete_playlist, "s")
+        add("myplaylist-sort", lambda p: s.sort_playlist(*p.split(":", 1)), "s")
+        # a song in one of your playlists: "pid:index"
+        add("myplaylist-top", lambda p: self._playlist_move(p, "top"), "s")
+        add("myplaylist-bottom", lambda p: self._playlist_move(p, "bottom"), "s")
+        add("myplaylist-remove", lambda p: s.remove_from_playlist(
+            p.rsplit(":", 1)[0], int(p.rsplit(":", 1)[1])), "s")
+        add("save-queue", lambda _: ask_name(self, "Save Queue as Playlist", "", "Save",
+                                             s.save_queue_as_playlist))
+        add("copy-kodi-playlist", lambda p: s.copy_kodi_playlist(p[0], p[1]), "(ss)")
+        add("queue-artist", lambda i: s.enqueue({"artistid": i}), "i")
+        add("next-artist", lambda i: s.play_next({"artistid": i}), "i")
         add("fav-remove", self._remove_favourite, "s")
         add("fav-play", self._play_favourite, "s")
         s.connect("favourites-changed", lambda *_: self._on_favourites_changed())
@@ -768,6 +787,33 @@ class Window(Adw.ApplicationWindow):
             ask_name(self, "New Playlist", "", "Create", create)
         else:
             self.session.add_to_playlist(pid, kind, int(item))
+
+    def _playlist_move(self, target: str, where: str):
+        pid, index = target.rsplit(":", 1)
+        pl = self.session.playlists.get(pid) if self.session.playlists else None
+        if pl is not None:
+            self.session.move_in_playlist(pid, int(index),
+                                          0 if where == "top" else len(pl["songs"]) - 1)
+
+    def rename_playlist(self, pid: str):
+        pl = self.session.playlists.get(pid) if self.session.playlists else None
+        if pl is not None:
+            ask_name(self, "Rename Playlist", pl["name"], "Rename",
+                     lambda name: self.session.rename_playlist(pid, name))
+
+    def delete_playlist(self, pid: str):
+        pl = self.session.playlists.get(pid) if self.session.playlists else None
+        if pl is None:
+            return
+        dlg = Adw.AlertDialog(heading=f"Delete “{pl['name']}”?",
+                              body="The playlist goes; the music stays in your library.")
+        dlg.add_response("cancel", "Cancel")
+        dlg.add_response("delete", "Delete")
+        dlg.set_response_appearance("delete", Adw.ResponseAppearance.DESTRUCTIVE)
+        dlg.set_close_response("cancel")
+        dlg.connect("response", lambda d, r: r == "delete" and
+                    self.session.delete_playlist(pid))
+        dlg.present(self)
 
     def _remove_favourite(self, key: str):
         from .favourites import fav_key

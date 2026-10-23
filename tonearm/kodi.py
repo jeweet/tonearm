@@ -33,6 +33,9 @@ class KodiConnectionError(Exception):
     """Kodi could not be reached."""
 
 
+CONNECT_TIMEOUT = 5.0   # seconds to open a connection (Kodi on the LAN answers in ms)
+
+
 class KodiTimeout(KodiConnectionError):
     """Kodi accepted the request but didn't answer in time (usually just busy)."""
 
@@ -136,9 +139,24 @@ class KodiClient:
         last_exc = None
         for attempt in range(2):  # retry once on a stale keep-alive socket
             conn = self._conn()
+            if conn.sock is None:
+                # A new connection: a machine that's switched off never answers, so
+                # don't wait the whole request timeout — and call it unreachable, not
+                # "busy" (a busy Kodi still accepts connections)
+                conn.timeout = min(timeout, CONNECT_TIMEOUT)
+                try:
+                    conn.connect()
+                except (TimeoutError, socket.timeout) as exc:
+                    self._drop_conn()
+                    raise KodiConnectionError(
+                        f"Cannot reach {self.instance.host}:{self.instance.port}: "
+                        "no answer") from exc
+                except OSError as exc:
+                    last_exc = exc
+                    self._drop_conn()
+                    continue
             conn.timeout = timeout
-            if conn.sock is not None:
-                conn.sock.settimeout(timeout)
+            conn.sock.settimeout(timeout)
             try:
                 conn.request("POST", "/jsonrpc", body=body, headers=self._headers())
                 resp = conn.getresponse()

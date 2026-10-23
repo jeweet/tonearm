@@ -244,7 +244,8 @@ class FakeLibrary:
             songs = sorted(self.songs)[:5]
             return {"files": [{"file": f"/music/{s}.flac", "label": self.songs[s]["title"],
                                "title": self.songs[s]["title"], "artist": self.songs[s]["artist"],
-                               "duration": self.songs[s]["duration"], "type": "song"} for s in songs]}
+                               "duration": self.songs[s]["duration"], "type": "song", "id": s}
+                              for s in songs]}
         if method == "Playlist.Swap":
             a, b = p["position1"], p["position2"]
             self.queue[a], self.queue[b] = self.queue[b], self.queue[a]

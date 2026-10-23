@@ -56,8 +56,13 @@ class PlaylistStore:
         if pl is None:
             return 0
         have = {s["id"] for s in pl["songs"]}
-        new = [{"id": int(s["id"]), "title": s.get("title", ""), "artist": s.get("artist", "")}
-               for s in songs if int(s["id"]) not in have]
+        new = []
+        for s in songs:
+            sid = int(s["id"])
+            if sid not in have:          # also only once from this batch
+                have.add(sid)
+                new.append({"id": sid, "title": s.get("title", ""),
+                            "artist": s.get("artist", "")})
         if new:
             pl["songs"].extend(new)
             pl["updated"] = _now()
@@ -72,6 +77,58 @@ class PlaylistStore:
             del pl["songs"][index]
             pl["updated"] = _now()
             self.save()
+
+    def move(self, pid: str, src: int, dst: int):
+        """Move the song at ``src`` to position ``dst`` (drag to reorder, to top…)."""
+        pl = self.get(pid)
+        if pl is None:
+            return
+        songs = pl["songs"]
+        if not (0 <= src < len(songs)):
+            return
+        dst = max(0, min(len(songs) - 1, dst))
+        if src == dst:
+            return
+        songs.insert(dst, songs.pop(src))
+        pl["updated"] = _now()
+        self.save()
+
+    def reorder(self, pid: str, ids: list[int]):
+        """Put the songs in the order of ``ids`` (a sort); unknown ids are ignored and
+        songs not named keep their place at the end."""
+        pl = self.get(pid)
+        if pl is None:
+            return
+        by_id = {s["id"]: s for s in pl["songs"]}
+        out = [by_id.pop(i) for i in ids if i in by_id]
+        out += [s for s in pl["songs"] if s["id"] in by_id]
+        pl["songs"], pl["updated"] = out, _now()
+        self.save()
+
+    def duplicate(self, pid: str, name: str | None = None) -> dict | None:
+        pl = self.get(pid)
+        if pl is None:
+            return None
+        copy = self.create(name or f"{pl['name']} (copy)")
+        copy["songs"] = [dict(s) for s in pl["songs"]]
+        self.save()
+        return copy
+
+    def create_with(self, name: str, songs: list[dict]) -> dict:
+        """A new playlist holding ``songs`` (the queue, a copy of a Kodi playlist)."""
+        pl = self.create(name)
+        self.add(pl["id"], songs)
+        return pl
+
+    def unique_name(self, name: str) -> str:
+        """``name``, or "name 2", "name 3"… when taken."""
+        taken = {p["name"].lower() for p in self._lists}
+        if name.lower() not in taken:
+            return name
+        n = 2
+        while f"{name} {n}".lower() in taken:
+            n += 1
+        return f"{name} {n}"
 
     def save(self):
         tmp = self.path + ".tmp"

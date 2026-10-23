@@ -735,6 +735,20 @@ class LibraryCache:
                 """SELECT id,albumid,title,artist,track,disc,duration FROM songs
                    WHERE albumid=? ORDER BY disc, track, title""", (albumid,))]
 
+    def song_sort_info(self, ids) -> dict[int, tuple]:
+        """id → (artist, album, disc, track, title, dateadded), for sorting a playlist."""
+        ids = list(ids)
+        if not ids:
+            return {}
+        with self._lock:
+            rows = self._db.execute(
+                """SELECT s.id, COALESCE(s.artist, ''), COALESCE(a.title, ''), COALESCE(s.disc, 0),
+                          COALESCE(s.track, 0), COALESCE(s.title, ''), COALESCE(s.dateadded, '')
+                   FROM songs s LEFT JOIN albums a ON a.id = s.albumid
+                   WHERE s.id IN (SELECT value FROM json_each(?))""",
+                (json.dumps(ids),)).fetchall()
+        return {r[0]: tuple(r[1:]) for r in rows}
+
     def song(self, songid: int) -> Song | None:
         with self._lock:
             r = self._db.execute(

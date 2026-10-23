@@ -7,7 +7,7 @@ from gi.repository import Adw, Gdk, Gio, GLib, GObject, Graphene, Gtk, Pango
 
 from ..sleeptimer import CHOICES as SLEEP_CHOICES
 from ..util import fmt_time
-from .widgets import Cover, RatingStars, plain_row
+from .widgets import Cover, RatingStars, make_draggable, plain_row
 
 REPEAT_ICON = {"off": "tonearm-consecutive-symbolic",
                "all": "tonearm-repeat-symbolic",
@@ -61,8 +61,23 @@ class GlassBin(Adw.Bin):
         self._paintable = Gtk.WidgetPaintable.new(widget)
         self._paintable.connect("invalidate-contents", lambda *_: self.queue_draw())
 
+    def _base_color(self):
+        """The bar's opaque base, painted here too — not only by CSS, which an unfocused
+        window's theme rules could take away (the bar then went fully see-through)."""
+        try:
+            ok, rgba = self.get_style_context().lookup_color("headerbar_bg_color")
+        except Exception:   # noqa: BLE001  (lookup_color is deprecated; may go)
+            ok, rgba = False, None
+        if ok and rgba is not None:
+            rgba.alpha = 1.0
+            return rgba
+        return None
+
     def do_snapshot(self, snapshot):
         w, h = self.get_width(), self.get_height()
+        base = self._base_color() if w > 0 and h > 0 else None
+        if base is not None:
+            snapshot.append_color(base, Graphene.Rect().init(0, 0, w, h))
         src = self._source
         if src is not None and w > 0 and h > 0 and src.get_mapped():
             ok, pt = src.compute_point(self, Graphene.Point().init(0, 0))
@@ -563,9 +578,16 @@ class PlayerDialog(Adw.Dialog):
         self.queue_list = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE)
         self.queue_list.add_css_class("boxed-list")
         self.queue_list.connect("row-activated", lambda lb, row: self.session.goto(row.position))
-        clear = Gtk.Button(label="Clear Queue", halign=Gtk.Align.CENTER, margin_top=12)
+        clear = Gtk.Button(label="Clear Queue")
         clear.add_css_class("pill")
         clear.connect("clicked", lambda *_: self.session.clear_queue())
+        # the queue as one of your playlists (after a good radio session, say)
+        save = Gtk.Button(label="Save as Playlist…", action_name="win.save-queue")
+        save.add_css_class("pill")
+        queue_buttons = Gtk.Box(spacing=8, halign=Gtk.Align.CENTER, margin_top=12)
+        queue_buttons.append(save)
+        queue_buttons.append(clear)
+        self.queue_buttons = queue_buttons
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, margin_start=12, margin_end=12,
                       margin_top=6, margin_bottom=18)
         self.queue_empty = Gtk.Label(label="The queue is empty", margin_top=48, visible=False)
@@ -584,50 +606,13 @@ class PlayerDialog(Adw.Dialog):
         self.party_box.append(stop)
         box.append(self.party_box)
         box.append(self.queue_list)
-        box.append(clear)
+        box.append(queue_buttons)
         return Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER,
                                   child=Adw.Clamp(maximum_size=600, child=box))
 
     # -- drag to reorder ------------------------------------------------------
     def _make_draggable(self, row):
-        """A drag handle at the row's start (only it starts a drag, so the list still
-        scrolls by touch); dropping on another row moves the song there."""
-        handle = Gtk.Image(icon_name="tonearm-drag-symbolic", tooltip_text="Drag to Reorder")
-        handle.add_css_class("drag-handle")
-        row.add_prefix(handle)
-        src = Gtk.DragSource(actions=Gdk.DragAction.MOVE)
-        src.connect("prepare", lambda *_: Gdk.ContentProvider.new_for_value(
-            GObject.Value(GObject.TYPE_INT, row.position)))
-        src.connect("drag-begin", lambda s, drag: (
-            s.set_icon(Gtk.WidgetPaintable.new(row), 24, 24), row.add_css_class("dragging")))
-        src.connect("drag-end", lambda *_: row.remove_css_class("dragging"))
-        handle.add_controller(src)
-        drop = Gtk.DropTarget.new(GObject.TYPE_INT, Gdk.DragAction.MOVE)
-        drop.set_preload(True)     # know where the song comes from while hovering
-
-        def enter(t, _x, _y):
-            src_pos = t.get_value()
-            # a line where it will land: under this row moving down, above it moving up
-            below = isinstance(src_pos, int) and src_pos < row.position
-            row.add_css_class("drop-below" if below else "drop-above")
-            return Gdk.DragAction.MOVE
-
-        def leave(*_):
-            row.remove_css_class("drop-above")
-            row.remove_css_class("drop-below")
-
-        drop.connect("enter", enter)
-        drop.connect("leave", leave)
-
-        def dropped(_t, value, _x, _y):
-            leave()
-            if isinstance(value, int) and value != row.position:
-                self.session.move_in_queue(value, row.position)
-                return True
-            return False
-
-        drop.connect("drop", dropped)
-        row.add_controller(drop)
+        make_draggable(row, self.session.move_in_queue)
 
     def _toggle_queue(self, btn):
         show = btn.get_active()

@@ -705,6 +705,111 @@ def playlist_submenu(kind: str, item_id: int) -> Gio.Menu:
     return sub
 
 
+def _item(label, action, target: GLib.Variant | None = None) -> Gio.MenuItem:
+    it = Gio.MenuItem.new(label, None)
+    if target is None:
+        it.set_detailed_action(action)
+    else:
+        it.set_action_and_target_value(action, target)
+    return it
+
+
+def my_playlist_menu(pid: str, with_play: bool = True) -> Gio.Menu:
+    """One of your playlists: play, rename, sort, duplicate, delete."""
+    v = GLib.Variant("s", pid)
+    m = Gio.Menu()
+    if with_play:
+        play = Gio.Menu()
+        play.append_item(_item("Play", "win.myplaylist-play", v))
+        play.append_item(_item("Shuffle", "win.myplaylist-shuffle", v))
+        m.append_section(None, play)
+    edit = Gio.Menu()
+    edit.append_item(_item("Rename…", "win.myplaylist-rename", v))
+    sort = Gio.Menu()
+    for key, label in (("artist", "Artist"), ("album", "Album"), ("title", "Title"),
+                       ("recent", "Date Added")):
+        sort.append_item(_item(label, "win.myplaylist-sort", GLib.Variant("s", f"{pid}:{key}")))
+    edit.append_submenu("Sort by", sort)
+    edit.append_item(_item("Duplicate", "win.myplaylist-duplicate", v))
+    m.append_section(None, edit)
+    m.append_item(_item("Delete Playlist…", "win.myplaylist-delete", v))
+    return m
+
+
+def playlist_song_menu(pid: str, index: int, count: int, songid: int | None,
+                       albumid: int | None) -> Gio.Menu:
+    """A song in one of your playlists: move it, remove it — and the song's own menu."""
+    m = song_menu(songid, albumid) if songid else Gio.Menu()
+    v = GLib.Variant("s", f"{pid}:{index}")
+    sec = Gio.Menu()
+    if index > 0:
+        sec.append_item(_item("Move to Top", "win.myplaylist-top", v))
+    if index < count - 1:
+        sec.append_item(_item("Move to Bottom", "win.myplaylist-bottom", v))
+    sec.append_item(_item("Remove from Playlist", "win.myplaylist-remove", v))
+    m.prepend_section(None, sec)
+    return m
+
+
+def artist_menu(artistid: int) -> Gio.Menu:
+    v = GLib.Variant("i", artistid)
+    m = Gio.Menu()
+    play = Gio.Menu()
+    for label, action in (("Play", "win.play-artist"), ("Shuffle", "win.shuffle-artist"),
+                          ("Play Next", "win.next-artist"), ("Add to Queue", "win.queue-artist")):
+        play.append_item(_item(label, action, v))
+    m.append_section(None, play)
+    more = Gio.Menu()
+    fav = artistid in FAVOURITES["artists"]
+    more.append_item(_item("Remove from Favorites" if fav else "Add to Favorites",
+                           "win.fav-artist", v))
+    more.append_submenu("Add to Playlist", playlist_submenu("artist", artistid))
+    m.append_section(None, more)
+    return m
+
+
+def make_draggable(row, on_move):
+    """A drag handle at the row's start (only it starts a drag, so the list still
+    scrolls by touch); dropping on another row calls ``on_move(from, to)``.
+    ``row.position``: its place in the list."""
+    handle = Gtk.Image(icon_name="tonearm-drag-symbolic", tooltip_text="Drag to Reorder")
+    handle.add_css_class("drag-handle")
+    row.add_prefix(handle)
+    src = Gtk.DragSource(actions=Gdk.DragAction.MOVE)
+    src.connect("prepare", lambda *_: Gdk.ContentProvider.new_for_value(
+        GObject.Value(GObject.TYPE_INT, row.position)))
+    src.connect("drag-begin", lambda s, drag: (
+        s.set_icon(Gtk.WidgetPaintable.new(row), 24, 24), row.add_css_class("dragging")))
+    src.connect("drag-end", lambda *_: row.remove_css_class("dragging"))
+    handle.add_controller(src)
+    drop = Gtk.DropTarget.new(GObject.TYPE_INT, Gdk.DragAction.MOVE)
+    drop.set_preload(True)     # know where the song comes from while hovering
+
+    def enter(t, _x, _y):
+        src_pos = t.get_value()
+        # a line where it will land: under this row moving down, above it moving up
+        below = isinstance(src_pos, int) and src_pos < row.position
+        row.add_css_class("drop-below" if below else "drop-above")
+        return Gdk.DragAction.MOVE
+
+    def leave(*_):
+        row.remove_css_class("drop-above")
+        row.remove_css_class("drop-below")
+
+    drop.connect("enter", enter)
+    drop.connect("leave", leave)
+
+    def dropped(_t, value, _x, _y):
+        leave()
+        if isinstance(value, int) and value != row.position:
+            on_move(value, row.position)
+            return True
+        return False
+
+    drop.connect("drop", dropped)
+    row.add_controller(drop)
+
+
 def ask_name(parent, heading: str, initial: str, confirm: str, callback):
     """A small dialog asking for a name; ``callback(name)`` on confirm."""
     dlg = Adw.AlertDialog(heading=heading)
